@@ -1,0 +1,6 @@
+index.ts
+src/**
+.eslint*
+.prettierrc
+tsconfig.json
+build.js
