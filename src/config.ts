@@ -1,4 +1,4 @@
-import { Config } from '@markdoc/markdoc'
+import { Config } from '@mohitsinghs/markdoc'
 import { join } from 'path'
 import { mkdirSync, existsSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
