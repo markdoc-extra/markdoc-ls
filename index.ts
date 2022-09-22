@@ -1,77 +1,32 @@
-import { Config } from '@mohitsinghs/markdoc'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   createConnection,
-  InitializeParams,
-  InitializeResult,
   ProposedFeatures,
   TextDocuments,
-  TextDocumentSyncKind,
 } from 'vscode-languageserver/node'
-import { URI } from 'vscode-uri'
-import { validateTextDocument } from './src/diagnostics'
-import { loadConfig } from './src/config'
+import { diagnostics } from './src/diagnostics'
+import { formatting } from './src/formatting'
+import { initialize, initialized } from './src/initialize'
+import { Server } from './src/interfaces'
 
 export function startServer() {
-  const connection = createConnection(ProposedFeatures.all)
-  const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument)
+  const server: Server = {
+    connection: createConnection(ProposedFeatures.all),
+    documents: new TextDocuments(TextDocument),
+    config: {},
+    capabilities: {},
+  }
 
-  let hasWorkspaceFolderCapability = false
-  let config: Config
+  const handleInitialize = initialize(server)
+  const handleInitialized = initialized(server)
+  const handleFormatting = formatting(server)
+  const handleDiagnostics = diagnostics(server)
 
-  connection.onInitialize((params: InitializeParams) => {
-    console.log('server initialized')
-    const capabilities = params.capabilities
-    if (params.workspaceFolders?.length) {
-      const workspaceRoot = URI.parse(params.workspaceFolders[0].uri).fsPath
-      loadConfig(workspaceRoot)
-        .then((cfg) => {
-          config = cfg
-          console.log('loaded config in memory')
-          documents.all().forEach((doc) => {
-            validateTextDocument(connection, config, doc)
-          })
-        })
-        .catch((e) => {
-          console.log('failed to load config', e)
-        })
-    }
+  server.connection.onInitialize(handleInitialize)
+  server.connection.onInitialized(handleInitialized)
+  server.connection.onDocumentFormatting(handleFormatting)
+  server.documents.onDidChangeContent(handleDiagnostics)
 
-    hasWorkspaceFolderCapability = !!(
-      capabilities.workspace && !!capabilities.workspace.workspaceFolders
-    )
-
-    const result: InitializeResult = {
-      capabilities: {
-        textDocumentSync: TextDocumentSyncKind.Incremental,
-        completionProvider: {
-          resolveProvider: true,
-        },
-      },
-    }
-    if (hasWorkspaceFolderCapability) {
-      result.capabilities.workspace = {
-        workspaceFolders: {
-          supported: true,
-        },
-      }
-    }
-    return result
-  })
-
-  connection.onInitialized(() => {
-    if (hasWorkspaceFolderCapability) {
-      connection.workspace.onDidChangeWorkspaceFolders((_event) => {
-        connection.console.log('Workspace folder change event received.')
-      })
-    }
-  })
-
-  // When content of a text document changes, revalidate it
-  documents.onDidChangeContent((change) => {
-    validateTextDocument(connection, config, change.document)
-  })
-
-  documents.listen(connection)
-  connection.listen()
+  server.documents.listen(server.connection)
+  server.connection.listen()
 }
