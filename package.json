@@ -16,7 +16,7 @@
   },
   "main": "./dist/index.js",
   "dependencies": {
-    "@mohitsinghs/markdoc": "^0.1.9",
+    "@mohitsinghs/markdoc": "^0.1.10",
     "esbuild-wasm": "^0.15.8",
     "vscode-languageserver": "^7.0.0",
     "vscode-languageserver-textdocument": "^1.0.4",
