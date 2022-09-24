@@ -6,9 +6,24 @@ import {
   TextDocuments,
 } from 'vscode-languageserver/node'
 
+export interface Symbols {
+  tags: string[]
+  functions: string[]
+  attributes: Record<string, string[]>
+}
+
 export interface Server {
   connection: Connection
   config: Config
   documents: TextDocuments<TextDocument>
   capabilities: ClientCapabilities
+  symbols: Symbols
+}
+
+export enum ErrorType {
+  value_missing,
+  attribute_or_fn_missing,
+  attribute_missing,
+  tag_missing,
+  unknown_error,
 }
