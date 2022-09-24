@@ -5,5 +5,5 @@
 - [x] Config Compilation
 - [x] Diagnostics
 - [x] Formatting
-- [ ] Completions
+- [x] Completions
 - [ ] Preview
