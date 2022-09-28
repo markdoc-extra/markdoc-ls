@@ -27,3 +27,13 @@ export enum ErrorType {
   tag_missing,
   unknown_error,
 }
+
+export interface CompletionData {
+  type: CompletionType
+}
+
+export enum CompletionType {
+  function,
+  tag,
+  attribute,
+}

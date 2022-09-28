@@ -1,4 +1,4 @@
-import { Node, parse, validate } from '@mohitsinghs/markdoc'
+import { parse, validate } from '@mohitsinghs/markdoc'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   Diagnostic,
