@@ -1,5 +1,5 @@
 {
-  "name": "markdoc-ls",
+  "name": "@mohitsinghs/markdoc-ls",
   "description": "Markdoc language server in node",
   "version": "0.1.0",
   "author": "Mohit Singh <mohit@mohitsingh.in>",
@@ -16,18 +16,18 @@
   },
   "main": "./dist/index.js",
   "dependencies": {
-    "@mohitsinghs/markdoc": "^0.1.10",
-    "esbuild-wasm": "^0.15.8",
-    "vscode-languageserver": "^7.0.0",
-    "vscode-languageserver-textdocument": "^1.0.4",
-    "vscode-uri": "^3.0.5"
+    "esbuild-wasm": "^0.15.8"
   },
   "devDependencies": {
+    "@mohitsinghs/markdoc": "^0.1.11",
     "@types/node": "^18.7.18",
     "@typescript-eslint/eslint-plugin": "^5.38.0",
     "@typescript-eslint/parser": "^5.38.0",
     "eslint": "^8.23.1",
-    "typescript": "^4.8.3"
+    "typescript": "^4.8.3",
+    "vscode-languageserver": "^7.0.0",
+    "vscode-languageserver-textdocument": "^1.0.4",
+    "vscode-uri": "^3.0.5"
   },
   "bundledDependencies": [
     "esbuild-wasm"
