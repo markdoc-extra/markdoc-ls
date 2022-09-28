@@ -1,4 +1,5 @@
 index.ts
+dist/**/*.map
 src/**
 .eslint*
 .prettierrc
