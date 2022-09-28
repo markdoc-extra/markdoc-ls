@@ -1,3 +1,4 @@
-out/**
+bin/**
+dist/**
 node_modules/**
 build.js
