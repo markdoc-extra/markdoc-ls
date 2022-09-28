@@ -1,4 +1,4 @@
-import { Config } from '@mohitsinghs/markdoc'
+import Markdoc, { Config } from '@mohitsinghs/markdoc'
 import { join } from 'path'
 import { mkdirSync, existsSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
@@ -36,7 +36,8 @@ async function buildFile(cfgRoot: string, name: string) {
     outdir: TEMP_DIR,
   })
 
-  return require(join(TEMP_DIR, `${name}.js`))
+  const result = await import(join(TEMP_DIR, nameWithExt))
+  return result.default || result || {}
 }
 
 export async function loadConfig(rootPath: string): Promise<Config> {
@@ -48,9 +49,9 @@ export async function loadConfig(rootPath: string): Promise<Config> {
   const config = await buildFile(configPath, 'config')
   if (existsSync(rootPath)) {
     result = {
-      tags: tags.default || tags,
-      nodes: nodes.default || nodes,
-      functions: functions.default || functions,
+      tags: { ...tags, ...Markdoc.tags },
+      nodes: { ...nodes, ...Markdoc.nodes },
+      functions: { ...functions, ...Markdoc.functions },
       ...(config.default || config),
     }
   }
