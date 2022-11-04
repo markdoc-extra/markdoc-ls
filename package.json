@@ -20,7 +20,7 @@
     "esbuild-wasm": "^0.15.8"
   },
   "devDependencies": {
-    "@mohitsinghs/markdoc": "^0.1.11",
+    "@mohitsinghs/markdoc": "^0.2.1",
     "@types/node": "^18.7.18",
     "@typescript-eslint/eslint-plugin": "^5.38.0",
     "@typescript-eslint/parser": "^5.38.0",
