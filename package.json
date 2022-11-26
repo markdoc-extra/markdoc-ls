@@ -1,5 +1,5 @@
 {
-  "name": "@mohitsinghs/markdoc-ls",
+  "name": "markdoc-ls",
   "description": "Markdoc language server in node",
   "version": "0.1.0",
   "author": "Mohit Singh <mohit@mohitsingh.in>",
