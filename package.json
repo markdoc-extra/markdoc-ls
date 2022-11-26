@@ -1,25 +1,24 @@
 {
   "name": "markdoc-ls",
   "description": "Markdoc language server in node",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Mohit Singh <mohit@mohitsingh.in>",
   "license": "MIT",
   "engines": {
-    "node": "*"
+    "node": ">=16"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/mohitsinghs/markdoc-ls"
   },
   "scripts": {
-    "postinstall": "patch-package",
+    "prebuild": "npx patch-package",
     "build": "node ./build.js"
   },
   "bin": "./bin/markdoc-ls",
   "main": "./dist/index.js",
   "dependencies": {
-    "esbuild-wasm": "^0.15.15",
-    "patch-package": "^6.5.0"
+    "esbuild-wasm": "^0.15.15"
   },
   "devDependencies": {
     "@markdoc/markdoc": "^0.2.1",

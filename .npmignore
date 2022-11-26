@@ -5,3 +5,4 @@ src/**
 .prettierrc
 tsconfig.json
 build.js
+patches
