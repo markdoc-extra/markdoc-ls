@@ -9,47 +9,14 @@ import { URI } from 'vscode-uri'
 import { loadConfig } from './config'
 import { Server } from './interfaces'
 
-let hasWorkspaceFolderCapability = false
-
 export function initialize(server: Server) {
-  return (
+  return async (
     params: InitializeParams,
     _cancel: CancellationToken,
     progress: WorkDoneProgressReporter
-  ): InitializeResult => {
+  ): Promise<InitializeResult> => {
     progress.begin('Initializing')
     server.capabilities = params.capabilities
-    if (params.workspaceFolders?.length) {
-      const workspaceRoot = URI.parse(params.workspaceFolders[0].uri).fsPath
-      loadConfig(workspaceRoot)
-        .then((cfg) => {
-          server.config = cfg
-          console.log('loaded config')
-          console.log('caching symbols')
-          if (server.config.functions) {
-            server.symbols.functions = Object.keys(server.config.functions)
-          }
-          if (server.config.tags) {
-            const tags = server.config.tags
-            server.symbols.tags = Object.keys(tags)
-            server.symbols.tags.forEach((tag) => {
-              const attributes = tags[tag].attributes || {}
-              server.symbols.attributes[tag] = Object.keys(attributes)
-            })
-          }
-          console.log(
-            `cached : ${server.symbols.functions.length} functions, ${server.symbols.tags.length} tags`
-          )
-        })
-        .catch((e) => {
-          console.log('failed to load config', e)
-        })
-    }
-
-    hasWorkspaceFolderCapability = !!(
-      server.capabilities.workspace &&
-      !!server.capabilities.workspace.workspaceFolders
-    )
 
     const result: InitializeResult = {
       capabilities: {
@@ -60,24 +27,46 @@ export function initialize(server: Server) {
         documentFormattingProvider: true,
       },
     }
-    if (hasWorkspaceFolderCapability) {
-      result.capabilities.workspace = {
-        workspaceFolders: {
-          supported: true,
-        },
-      }
-    }
     progress.done()
     return result
   }
 }
 
 export function initialized(server: Server) {
-  return () => {
-    if (hasWorkspaceFolderCapability) {
-      server.connection.workspace.onDidChangeWorkspaceFolders((_event) => {
-        server.connection.console.log('Workspace folder change event received.')
-      })
+  return async () => {
+    const progress = await server.connection.window.createWorkDoneProgress()
+    const folders =
+      (await server.connection.workspace.getWorkspaceFolders()) ?? []
+
+    if (folders.length) {
+      progress.begin('Indexing')
+      const workspaceRoot = URI.parse(folders[0].uri).fsPath
+      try {
+        const config = await loadConfig(workspaceRoot)
+        server.config = config
+        console.log('loaded config')
+        console.log('caching symbols')
+        if (server.config.functions) {
+          server.symbols.functions = Object.keys(server.config.functions)
+        }
+        if (server.config.tags) {
+          const tags = server.config.tags
+          server.symbols.tags = Object.keys(tags)
+          server.symbols.tags.forEach((tag) => {
+            const attributes = tags[tag].attributes || {}
+            server.symbols.attributes[tag] = Object.keys(attributes)
+          })
+        }
+        console.log(
+          `cached : ${server.symbols.functions.length} functions, ${server.symbols.tags.length} tags`
+        )
+      } catch (err) {
+        console.log('failed to load config', err)
+      }
+      progress.done()
     }
+    server.connection.workspace.onDidChangeWorkspaceFolders((_event) => {
+      server.connection.console.log('Workspace folder change event received.')
+    })
   }
 }

@@ -1,4 +1,4 @@
-import { parse, __EXPERIMENTAL__format } from '@mohitsinghs/markdoc'
+import { format, parse } from '@markdoc/markdoc/index'
 import {
   DocumentFormattingParams,
   Position,
@@ -16,7 +16,7 @@ export function formatting(server: Server) {
     }
     try {
       const ast = parse(currentDoc.getText())
-      const formatted = __EXPERIMENTAL__format(ast)
+      const formatted = format(ast)
       if (!formatted) return []
       const docStart = Position.create(0, 0)
       const docEnd = Position.create(currentDoc.lineCount, uinteger.MAX_VALUE)

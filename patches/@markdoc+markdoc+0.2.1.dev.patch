@@ -1,0 +1,1188 @@
+diff --git a/node_modules/@markdoc/markdoc/index.ts b/node_modules/@markdoc/markdoc/index.ts
+index 75b1385..12ff1a8 100644
+--- a/node_modules/@markdoc/markdoc/index.ts
++++ b/node_modules/@markdoc/markdoc/index.ts
+@@ -93,16 +93,27 @@ export function validate<C extends Config = Config>(
+   const config = mergeConfig(options);
+ 
+   const output = [content, ...content.walk()].map((node) => {
+-    const { type, lines, location } = node;
++    const { type, lines, location, range } = node as Node;
+     const errors = validator(node, config);
+-
+     if (isPromise(errors)) {
+       return errors.then((e) =>
+-        e.map((error) => ({ type, lines, location, error }))
++        e.map((error) => ({
++          type,
++          lines,
++          location,
++          range: error.range || range,
++          error,
++        }))
+       );
+     }
+ 
+-    return errors.map((error) => ({ type, lines, location, error }));
++    return errors.map((error) => ({
++      type,
++      lines,
++      location,
++      range: error.range || range,
++      error,
++    }));
+   });
+ 
+   if (output.some(isPromise)) {
+diff --git a/node_modules/@markdoc/markdoc/src/ast/node.test.ts b/node_modules/@markdoc/markdoc/src/ast/node.test.ts
+index 3dc34b0..5cb8b53 100644
+--- a/node_modules/@markdoc/markdoc/src/ast/node.test.ts
++++ b/node_modules/@markdoc/markdoc/src/ast/node.test.ts
+@@ -325,11 +325,11 @@ describe('transform', function () {
+         x: '1',
+       });
+       expect(annotations).toDeepEqual([
+-        { type: 'attribute', name: 'z', value: true },
+-        { type: 'class', name: 'class', value: true },
+-        { type: 'attribute', name: 'y', value: 2 },
+-        { type: 'attribute', name: 'x', value: '1' },
+-        { type: 'attribute', name: 'id', value: 'id' },
++        { type: 'attribute', name: 'z', value: true, range: [0, 6] },
++        { type: 'class', name: 'class', value: true, range: [7, 13] },
++        { type: 'attribute', name: 'y', value: 2, range: [14, 17] },
++        { type: 'attribute', name: 'x', value: '1', range: [18, 23] },
++        { type: 'attribute', name: 'id', value: 'id', range: [24, 27] },
+       ]);
+     });
+   });
+diff --git a/node_modules/@markdoc/markdoc/src/ast/node.ts b/node_modules/@markdoc/markdoc/src/ast/node.ts
+index 284bcf7..a09d061 100644
+--- a/node_modules/@markdoc/markdoc/src/ast/node.ts
++++ b/node_modules/@markdoc/markdoc/src/ast/node.ts
+@@ -22,6 +22,7 @@ export default class Node implements AstType {
+   lines: number[] = [];
+   type: NodeType;
+   tag?: string;
++  range?: [number, number];
+   annotations: AttributeValue[];
+ 
+   inline = false;
+diff --git a/node_modules/@markdoc/markdoc/src/formatter.test.ts b/node_modules/@markdoc/markdoc/src/formatter.test.ts
+index 4979083..fc98fbd 100644
+--- a/node_modules/@markdoc/markdoc/src/formatter.test.ts
++++ b/node_modules/@markdoc/markdoc/src/formatter.test.ts
+@@ -139,7 +139,15 @@ subtitle: Subtitle
+ 
+   it('escape markdown content', () => {
+     const source = `
+-\\* Asterisk
++regular_word_with_underscores
++
++\\* List item
++
++\\> Blockquote
++
++\\# Heading
++
++\\### Heading
+ 
+ **/docs/\\***
+ 
+@@ -616,6 +624,23 @@ Yes!
+     stable(expected);
+   });
+ 
++  it('lists with complex items', () => {
++    const source = `
++* **One {% colspan=1 %}**
++* **Two {% colspan=2 %}**
++* **Three {% colspan=3 %}**
++`;
++
++    const expected = `
++- **One**{% colspan=1 %}
++- **Two**{% colspan=2 %}
++- **Three**{% colspan=3 %}
++`;
++
++    check(source, expected);
++    stable(expected);
++  });
++
+   it('fences with block level tags', () => {
+     const source = `{% tab %}
+ \`\`\`json {% filename="package.json" %}
+@@ -654,23 +679,6 @@ Package.json
+     check(source, expected);
+   });
+ 
+-  it('complex lists', () => {
+-    const source = `
+-* **One {% colspan=1 %}**
+-* **Two {% colspan=2 %}**
+-* **Three {% colspan=3 %}**
+-`;
+-
+-    const expected = `
+-- **One**{% colspan=1 %}
+-- **Two**{% colspan=2 %}
+-- **Three**{% colspan=3 %}
+-`;
+-
+-    check(source, expected);
+-    stable(expected);
+-  });
+-
+   it('nested fences', () => {
+     const source = `
+ ${'`'.repeat(4)}
+diff --git a/node_modules/@markdoc/markdoc/src/formatter.ts b/node_modules/@markdoc/markdoc/src/formatter.ts
+index 95bd7a7..c7e5d5b 100644
+--- a/node_modules/@markdoc/markdoc/src/formatter.ts
++++ b/node_modules/@markdoc/markdoc/src/formatter.ts
+@@ -17,6 +17,8 @@ const UL = '- '; //  Unordered list
+ 
+ const MAX_TAG_OPENING_WIDTH = 80;
+ 
++const WRAPPING_TYPES = ['strong', 'em', 's'];
++
+ const max = (a: number, b: number) => Math.max(a, b);
+ const increment = (o: Options, n = 2) => ({
+   ...o,
+@@ -195,11 +197,21 @@ function* formatNode(n: Node, o: Options = {}) {
+     }
+     case 'text': {
+       const { content } = n.attributes;
+-      if (Ast.isAst(content)) yield OPEN + SPACE;
+-      yield* typeof content === 'string'
+-        ? escapeMarkdownCharacters(content, /[_*~]/g)
+-        : formatValue(content, no);
+-      if (Ast.isAst(content)) yield SPACE + CLOSE;
++
++      if (Ast.isAst(content)) {
++        yield OPEN + SPACE;
++        yield* formatValue(content, no);
++        yield SPACE + CLOSE;
++      } else {
++        if (o.parent && WRAPPING_TYPES.includes(o.parent.type)) {
++          // Escape **strong**, _em_, and ~~s~~
++          yield* escapeMarkdownCharacters(content, /[*_~]/g);
++        } else {
++          // Escape > blockquote, * list item, and heading
++          yield* escapeMarkdownCharacters(content, /^[*>#]/);
++        }
++      }
++
+       break;
+     }
+     case 'blockquote': {
+@@ -234,7 +246,6 @@ function* formatNode(n: Node, o: Options = {}) {
+       yield* formatAnnotations(n);
+       yield NL;
+       yield indent;
+-      // TODO use formatChildren once we can differentiate inline from block tags within fences
+       yield n.attributes.content.split(NL).join(NL + indent); // yield* formatChildren(n, no);
+       yield boundary;
+       yield NL;
+diff --git a/node_modules/@markdoc/markdoc/src/grammar/tag.js b/node_modules/@markdoc/markdoc/src/grammar/tag.js
+index f7c26a0..fc6dc09 100644
+--- a/node_modules/@markdoc/markdoc/src/grammar/tag.js
++++ b/node_modules/@markdoc/markdoc/src/grammar/tag.js
+@@ -217,90 +217,111 @@ function peg$parse(input, options) {
+         value: primary,
+       });
+     }
+-
+     const [type, nesting] = close ? ['tag', 0] : ['tag_open', 1];
+-    return { type, nesting, meta: { tag, attributes } };
++    return { type, nesting, meta: { ...tag, attributes } };
+   };
+   var peg$f4 = function (tag) {
+-    return { type: 'tag_close', nesting: -1, meta: { tag } };
++    return { type: 'tag_close', nesting: -1, meta: { ...tag } };
++  };
++  var peg$f5 = function (name) {
++    const loc = location();
++    return { tag: name, range: [loc.start.offset, loc.end.offset] };
+   };
+-  var peg$f5 = function (head, tail) {
++  var peg$f6 = function (head, tail) {
+     return !head ? [] : [head, ...tail];
+   };
+-  var peg$f6 = function (item) {
++  var peg$f7 = function (item) {
+     return item;
+   };
+-  var peg$f7 = function (ids) {
++  var peg$f8 = function (ids) {
+     return ids;
+   };
+-  var peg$f8 = function (classes) {
++  var peg$f9 = function (classes) {
+     return classes;
+   };
+-  var peg$f9 = function (attribute) {
++  var peg$f10 = function (attribute) {
+     return attribute;
+   };
+-  var peg$f10 = function (name) {
+-    return { type: 'class', name, value: true };
++  var peg$f11 = function (name) {
++    const loc = location();
++    return {
++      type: 'class',
++      name,
++      value: true,
++      range: [loc.start.offset, loc.end.offset],
++    };
+   };
+-  var peg$f11 = function (value) {
+-    return { type: 'attribute', name: 'id', value };
++  var peg$f12 = function (value) {
++    const loc = location();
++    return {
++      type: 'attribute',
++      name: 'id',
++      value,
++      range: [loc.start.offset, loc.end.offset],
++    };
+   };
+-  var peg$f12 = function (name, value) {
+-    return { type: 'attribute', name, value };
++  var peg$f13 = function (name, value) {
++    const loc = location();
++    return {
++      type: 'attribute',
++      name,
++      value,
++      range: [loc.start.offset, loc.end.offset],
++    };
+   };
+-  var peg$f13 = function (name, head, tail) {
++  var peg$f14 = function (name, head, tail) {
+     return head ? [head, ...tail] : [];
+   };
+-  var peg$f14 = function (name, params) {
++  var peg$f15 = function (name, params) {
+     let parameters = {};
+     for (let [index, { name, value }] of params.entries())
+       parameters[name || index] = value;
+     return new Function(name, parameters);
+   };
+-  var peg$f15 = function (name) {
++  var peg$f16 = function (name) {
+     return name;
+   };
+-  var peg$f16 = function (name, value) {
++  var peg$f17 = function (name, value) {
+     return { name, value };
+   };
+-  var peg$f17 = function (value) {
++  var peg$f18 = function (value) {
+     return value;
+   };
+-  var peg$f18 = function (prefix, head, tail) {
++  var peg$f19 = function (prefix, head, tail) {
+     if (prefix === '@') return [head, ...tail];
+     return new Variable([head, ...tail]);
+   };
+-  var peg$f19 = function () {
++  var peg$f20 = function () {
+     return null;
+   };
+-  var peg$f20 = function () {
++  var peg$f21 = function () {
+     return true;
+   };
+-  var peg$f21 = function () {
++  var peg$f22 = function () {
+     return false;
+   };
+-  var peg$f22 = function (head, tail) {
++  var peg$f23 = function (head, tail) {
+     return [head, ...tail];
+   };
+-  var peg$f23 = function (value) {
++  var peg$f24 = function (value) {
+     return value || [];
+   };
+-  var peg$f24 = function (head, tail) {
++  var peg$f25 = function (head, tail) {
+     return Object.assign(head, ...tail);
+   };
+-  var peg$f25 = function (value) {
++  var peg$f26 = function (value) {
+     return value || {};
+   };
+-  var peg$f26 = function (key, value) {
++  var peg$f27 = function (key, value) {
+     return key === '$$mdtype' ? {} : { [key]: value };
+   };
+-  var peg$f27 = function () {
++  var peg$f28 = function () {
+     return parseFloat(text());
+   };
+-  var peg$f28 = function (value) {
++  var peg$f29 = function (value) {
+     return value.join('');
+   };
+-  var peg$f29 = function (sequence) {
++  var peg$f30 = function (sequence) {
+     return sequence;
+   };
+ 
+@@ -670,7 +691,7 @@ function peg$parse(input, options) {
+   }
+ 
+   function peg$parseTagName() {
+-    var s0;
++    var s0, s1;
+ 
+     var rule$expects = function (expected) {
+       if (peg$silentFails === 0) peg$expect(expected);
+@@ -678,7 +699,13 @@ function peg$parse(input, options) {
+ 
+     rule$expects(peg$e1);
+     peg$silentFails++;
+-    s0 = peg$parseIdentifier();
++    s0 = peg$currPos;
++    s1 = peg$parseIdentifier();
++    if (s1 !== peg$FAILED) {
++      peg$savedPos = s0;
++      s1 = peg$f5(s1);
++    }
++    s0 = s1;
+     peg$silentFails--;
+ 
+     return s0;
+@@ -701,7 +728,7 @@ function peg$parse(input, options) {
+         s3 = peg$parseTagAttributesTail();
+       }
+       peg$savedPos = s0;
+-      s0 = peg$f5(s1, s2);
++      s0 = peg$f6(s1, s2);
+     } else {
+       peg$currPos = s0;
+       s0 = peg$FAILED;
+@@ -732,7 +759,7 @@ function peg$parse(input, options) {
+       s2 = peg$parseTagAttributesItem();
+       if (s2 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f6(s2);
++        s0 = peg$f7(s2);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -756,7 +783,7 @@ function peg$parse(input, options) {
+     s1 = peg$parseTagShortcutId();
+     if (s1 !== peg$FAILED) {
+       peg$savedPos = s0;
+-      s1 = peg$f7(s1);
++      s1 = peg$f8(s1);
+     }
+     s0 = s1;
+     if (s0 === peg$FAILED) {
+@@ -764,7 +791,7 @@ function peg$parse(input, options) {
+       s1 = peg$parseTagShortcutClass();
+       if (s1 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s1 = peg$f8(s1);
++        s1 = peg$f9(s1);
+       }
+       s0 = s1;
+       if (s0 === peg$FAILED) {
+@@ -772,7 +799,7 @@ function peg$parse(input, options) {
+         s1 = peg$parseTagAttribute();
+         if (s1 !== peg$FAILED) {
+           peg$savedPos = s0;
+-          s1 = peg$f9(s1);
++          s1 = peg$f10(s1);
+         }
+         s0 = s1;
+       }
+@@ -801,7 +828,7 @@ function peg$parse(input, options) {
+       s2 = peg$parseIdentifier();
+       if (s2 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f10(s2);
++        s0 = peg$f11(s2);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -835,7 +862,7 @@ function peg$parse(input, options) {
+       s2 = peg$parseIdentifier();
+       if (s2 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f11(s2);
++        s0 = peg$f12(s2);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -870,7 +897,7 @@ function peg$parse(input, options) {
+         s3 = peg$parseValue();
+         if (s3 !== peg$FAILED) {
+           peg$savedPos = s0;
+-          s0 = peg$f12(s1, s3);
++          s0 = peg$f13(s1, s3);
+         } else {
+           peg$currPos = s0;
+           s0 = peg$FAILED;
+@@ -923,7 +950,7 @@ function peg$parse(input, options) {
+           s7 = peg$parseFunctionParameterTail();
+         }
+         peg$savedPos = s4;
+-        s4 = peg$f13(s1, s5, s6);
++        s4 = peg$f14(s1, s5, s6);
+         rule$expects(peg$e6);
+         if (input.charCodeAt(peg$currPos) === 41) {
+           s5 = peg$c5;
+@@ -933,7 +960,7 @@ function peg$parse(input, options) {
+         }
+         if (s5 !== peg$FAILED) {
+           peg$savedPos = s0;
+-          s0 = peg$f14(s1, s4);
++          s0 = peg$f15(s1, s4);
+         } else {
+           peg$currPos = s0;
+           s0 = peg$FAILED;
+@@ -970,7 +997,7 @@ function peg$parse(input, options) {
+       }
+       if (s3 !== peg$FAILED) {
+         peg$savedPos = s1;
+-        s1 = peg$f15(s2);
++        s1 = peg$f16(s2);
+       } else {
+         peg$currPos = s1;
+         s1 = peg$FAILED;
+@@ -985,7 +1012,7 @@ function peg$parse(input, options) {
+     s2 = peg$parseValue();
+     if (s2 !== peg$FAILED) {
+       peg$savedPos = s0;
+-      s0 = peg$f16(s1, s2);
++      s0 = peg$f17(s1, s2);
+     } else {
+       peg$currPos = s0;
+       s0 = peg$FAILED;
+@@ -1025,7 +1052,7 @@ function peg$parse(input, options) {
+       s4 = peg$parseFunctionParameter();
+       if (s4 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f17(s4);
++        s0 = peg$f18(s4);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -1099,7 +1126,7 @@ function peg$parse(input, options) {
+           s4 = peg$parseVariableTail();
+         }
+         peg$savedPos = s0;
+-        s0 = peg$f18(s1, s2, s3);
++        s0 = peg$f19(s1, s2, s3);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -1131,7 +1158,7 @@ function peg$parse(input, options) {
+       s2 = peg$parseIdentifier();
+       if (s2 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f15(s2);
++        s0 = peg$f16(s2);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -1162,7 +1189,7 @@ function peg$parse(input, options) {
+           }
+           if (s3 !== peg$FAILED) {
+             peg$savedPos = s0;
+-            s0 = peg$f17(s2);
++            s0 = peg$f18(s2);
+           } else {
+             peg$currPos = s0;
+             s0 = peg$FAILED;
+@@ -1231,7 +1258,7 @@ function peg$parse(input, options) {
+     }
+     if (s1 !== peg$FAILED) {
+       peg$savedPos = s0;
+-      s1 = peg$f19();
++      s1 = peg$f20();
+     }
+     s0 = s1;
+     peg$silentFails--;
+@@ -1257,7 +1284,7 @@ function peg$parse(input, options) {
+     }
+     if (s1 !== peg$FAILED) {
+       peg$savedPos = s0;
+-      s1 = peg$f20();
++      s1 = peg$f21();
+     }
+     s0 = s1;
+     if (s0 === peg$FAILED) {
+@@ -1270,7 +1297,7 @@ function peg$parse(input, options) {
+       }
+       if (s1 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s1 = peg$f21();
++        s1 = peg$f22();
+       }
+       s0 = s1;
+     }
+@@ -1312,7 +1339,7 @@ function peg$parse(input, options) {
+         }
+         s6 = peg$parseTrailingComma();
+         peg$savedPos = s3;
+-        s3 = peg$f22(s4, s5);
++        s3 = peg$f23(s4, s5);
+       } else {
+         peg$currPos = s3;
+         s3 = peg$FAILED;
+@@ -1335,7 +1362,7 @@ function peg$parse(input, options) {
+       }
+       if (s5 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f23(s3);
++        s0 = peg$f24(s3);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -1379,7 +1406,7 @@ function peg$parse(input, options) {
+       s4 = peg$parseValue();
+       if (s4 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f17(s4);
++        s0 = peg$f18(s4);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -1425,7 +1452,7 @@ function peg$parse(input, options) {
+         }
+         s6 = peg$parseTrailingComma();
+         peg$savedPos = s3;
+-        s3 = peg$f24(s4, s5);
++        s3 = peg$f25(s4, s5);
+       } else {
+         peg$currPos = s3;
+         s3 = peg$FAILED;
+@@ -1448,7 +1475,7 @@ function peg$parse(input, options) {
+       }
+       if (s5 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f25(s3);
++        s0 = peg$f26(s3);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -1492,7 +1519,7 @@ function peg$parse(input, options) {
+       s4 = peg$parseValueHashItem();
+       if (s4 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f6(s4);
++        s0 = peg$f7(s4);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -1535,7 +1562,7 @@ function peg$parse(input, options) {
+         s4 = peg$parseValue();
+         if (s4 !== peg$FAILED) {
+           peg$savedPos = s0;
+-          s0 = peg$f26(s1, s4);
++          s0 = peg$f27(s1, s4);
+         } else {
+           peg$currPos = s0;
+           s0 = peg$FAILED;
+@@ -1635,7 +1662,7 @@ function peg$parse(input, options) {
+         s3 = null;
+       }
+       peg$savedPos = s0;
+-      s0 = peg$f27();
++      s0 = peg$f28();
+     } else {
+       peg$currPos = s0;
+       s0 = peg$FAILED;
+@@ -1676,7 +1703,7 @@ function peg$parse(input, options) {
+       }
+       if (s3 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f28(s2);
++        s0 = peg$f29(s2);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+@@ -1741,7 +1768,7 @@ function peg$parse(input, options) {
+       }
+       if (s2 !== peg$FAILED) {
+         peg$savedPos = s0;
+-        s0 = peg$f29(s2);
++        s0 = peg$f30(s2);
+       } else {
+         peg$currPos = s0;
+         s0 = peg$FAILED;
+diff --git a/node_modules/@markdoc/markdoc/src/grammar/tag.pegjs b/node_modules/@markdoc/markdoc/src/grammar/tag.pegjs
+index 4815cd8..0d7b230 100644
+--- a/node_modules/@markdoc/markdoc/src/grammar/tag.pegjs
++++ b/node_modules/@markdoc/markdoc/src/grammar/tag.pegjs
+@@ -27,16 +27,18 @@ TagOpen =
+       attributes = attributes || [];
+       attributes.unshift({type: 'attribute', name: 'primary', value: primary});
+     }
+-
+     const [type, nesting] = close ? ['tag', 0] : ['tag_open', 1];
+-  	return {type, nesting, meta: {tag, attributes}};
++  	return {type, nesting, meta: {...tag, attributes}};
+   }
+   
+ TagClose =
+-  '/' tag:TagName { return {type: 'tag_close', nesting: -1, meta: {tag}}; }
++  '/' tag:TagName { return {type: 'tag_close', nesting: -1, meta: {...tag}}; }
+   
+ TagName 'tag name' =
+-  name:Identifier
++  name:Identifier {
++    const loc = location()
++  	return {tag: name, range: [ loc.start.offset, loc.end.offset ]}
++  }
+ 
+ TagAttributes =
+   head:TagAttributesItem
+@@ -55,20 +57,23 @@ TagAttributesItem =
+ TagShortcutClass 'class' =
+   '.'
+   name:Identifier {
+-    return {type: 'class', name, value: true};
++  	const loc = location()
++    return {type: 'class', name, value: true, range: [ loc.start.offset, loc.end.offset ]};
+   }
+ 
+ TagShortcutId 'id' =
+   '#'
+   value:Identifier {
+-    return {type: 'attribute', name: 'id', value};
++    const loc = location()
++    return {type: 'attribute', name: 'id', value, range: [ loc.start.offset, loc.end.offset ]};
+   }
+ 
+ TagAttribute =
+   name:Identifier
+   '='
+   value:Value {
+-  	return {type: 'attribute', name, value};
++  	const loc = location()
++  	return {type: 'attribute', name, value, range: [ loc.start.offset, loc.end.offset ]};
+   }
+ 
+ Function =
+diff --git a/node_modules/@markdoc/markdoc/src/grammar/tag.test.ts b/node_modules/@markdoc/markdoc/src/grammar/tag.test.ts
+index ed1cfa0..b6b55da 100644
+--- a/node_modules/@markdoc/markdoc/src/grammar/tag.test.ts
++++ b/node_modules/@markdoc/markdoc/src/grammar/tag.test.ts
+@@ -8,7 +8,7 @@ describe('Markdoc tag parser', function () {
+       expect(example).toDeepEqual({
+         type: 'tag_open',
+         nesting: 1,
+-        meta: { tag: 'foo', attributes: null },
++        meta: { tag: 'foo', attributes: null, range: [0, 3] },
+       });
+     });
+ 
+@@ -19,9 +19,10 @@ describe('Markdoc tag parser', function () {
+         nesting: 1,
+         meta: {
+           tag: 'foo',
++          range: [0, 3],
+           attributes: [
+-            { type: 'attribute', name: 'foo', value: 1 },
+-            { type: 'attribute', name: 'bar', value: true },
++            { type: 'attribute', name: 'foo', value: 1, range: [4, 9] },
++            { type: 'attribute', name: 'bar', value: true, range: [10, 18] },
+           ],
+         },
+       });
+@@ -32,7 +33,11 @@ describe('Markdoc tag parser', function () {
+       expect(example).toDeepEqual({
+         type: 'tag',
+         nesting: 0,
+-        meta: { tag: 'foo', attributes: null },
++        meta: {
++          tag: 'foo',
++          range: [0, 3],
++          attributes: null,
++        },
+       });
+     });
+ 
+@@ -43,9 +48,10 @@ describe('Markdoc tag parser', function () {
+         nesting: 0,
+         meta: {
+           tag: 'foo',
++          range: [0, 3],
+           attributes: [
+-            { type: 'attribute', name: 'foo', value: 1 },
+-            { type: 'attribute', name: 'bar', value: true },
++            { type: 'attribute', name: 'foo', value: 1, range: [4, 9] },
++            { type: 'attribute', name: 'bar', value: true, range: [10, 18] },
+           ],
+         },
+       });
+@@ -56,7 +62,10 @@ describe('Markdoc tag parser', function () {
+       expect(example).toDeepEqual({
+         type: 'tag_close',
+         nesting: -1,
+-        meta: { tag: 'foo' },
++        meta: {
++          tag: 'foo',
++          range: [1, 4],
++        },
+       });
+     });
+ 
+@@ -127,39 +136,39 @@ describe('Markdoc tag parser', function () {
+     it('parsing annotation with a single attribute', function () {
+       const example = parse('test=1');
+       expect(example.meta.attributes).toDeepEqual([
+-        { type: 'attribute', name: 'test', value: 1 },
++        { type: 'attribute', name: 'test', value: 1, range: [0, 6] },
+       ]);
+     });
+ 
+     it('with an id', function () {
+       const example = parse('#test');
+       expect(example.meta.attributes).toDeepEqual([
+-        { type: 'attribute', name: 'id', value: 'test' },
++        { type: 'attribute', name: 'id', value: 'test', range: [0, 5] },
+       ]);
+     });
+ 
+     it('with hyphens', function () {
+       const example = parse('#test-1 .foo-bar');
+       expect(example.meta.attributes).toDeepEqual([
+-        { type: 'attribute', name: 'id', value: 'test-1' },
+-        { type: 'class', name: 'foo-bar', value: true },
++        { type: 'attribute', name: 'id', value: 'test-1', range: [0, 7] },
++        { type: 'class', name: 'foo-bar', value: true, range: [8, 16] },
+       ]);
+     });
+ 
+     it('with chained classes', function () {
+       const example = parse('.foo .bar');
+       expect(example.meta.attributes).toDeepEqual([
+-        { type: 'class', name: 'foo', value: true },
+-        { type: 'class', name: 'bar', value: true },
++        { type: 'class', name: 'foo', value: true, range: [0, 4] },
++        { type: 'class', name: 'bar', value: true, range: [5, 9] },
+       ]);
+     });
+ 
+     it('with chained id and classes', function () {
+       const example = parse('#test-1 .foo .bar');
+       expect(example.meta.attributes).toDeepEqual([
+-        { type: 'attribute', name: 'id', value: 'test-1' },
+-        { type: 'class', name: 'foo', value: true },
+-        { type: 'class', name: 'bar', value: true },
++        { type: 'attribute', name: 'id', value: 'test-1', range: [0, 7] },
++        { type: 'class', name: 'foo', value: true, range: [8, 12] },
++        { type: 'class', name: 'bar', value: true, range: [13, 17] },
+       ]);
+     });
+ 
+@@ -170,34 +179,34 @@ describe('Markdoc tag parser', function () {
+     it('with key/value pairs', function () {
+       const example = parse('foo="bar" baz=3 test=true');
+       expect(example.meta.attributes).toDeepEqual([
+-        { type: 'attribute', name: 'foo', value: 'bar' },
+-        { type: 'attribute', name: 'baz', value: 3 },
+-        { type: 'attribute', name: 'test', value: true },
++        { type: 'attribute', name: 'foo', value: 'bar', range: [0, 9] },
++        { type: 'attribute', name: 'baz', value: 3, range: [10, 15] },
++        { type: 'attribute', name: 'test', value: true, range: [16, 25] },
+       ]);
+     });
+ 
+     it('with shortcuts and key/value pairs', function () {
+       const example = parse('#foo .bar test="asdf"', { Variable });
+       expect(example.meta.attributes).toDeepEqual([
+-        { type: 'attribute', name: 'id', value: 'foo' },
+-        { type: 'class', name: 'bar', value: true },
+-        { type: 'attribute', name: 'test', value: 'asdf' },
++        { type: 'attribute', name: 'id', value: 'foo', range: [0, 4] },
++        { type: 'class', name: 'bar', value: true, range: [5, 9] },
++        { type: 'attribute', name: 'test', value: 'asdf', range: [10, 21] },
+       ]);
+     });
+ 
+     it('with boolean key/value pairs', function () {
+       const example = parse('test=true foo=false bar=true');
+       expect(example.meta.attributes).toDeepEqual([
+-        { type: 'attribute', name: 'test', value: true },
+-        { type: 'attribute', name: 'foo', value: false },
+-        { type: 'attribute', name: 'bar', value: true },
++        { type: 'attribute', name: 'test', value: true, range: [0, 9] },
++        { type: 'attribute', name: 'foo', value: false, range: [10, 19] },
++        { type: 'attribute', name: 'bar', value: true, range: [20, 28] },
+       ]);
+     });
+ 
+     it('with null key/value pair', function () {
+       const example = parse('foo=null');
+       expect(example.meta.attributes).toDeepEqual([
+-        { type: 'attribute', name: 'foo', value: null },
++        { type: 'attribute', name: 'foo', value: null, range: [0, 8] },
+       ]);
+     });
+ 
+@@ -209,6 +218,7 @@ describe('Markdoc tag parser', function () {
+             type: 'attribute',
+             name: 'test',
+             value: new Variable(['foo'], null),
++            range: [0, 9],
+           },
+         ]);
+       });
+@@ -220,6 +230,7 @@ describe('Markdoc tag parser', function () {
+             type: 'attribute',
+             name: 'test',
+             value: new Variable(['foo', 'bar', 'baz'], null),
++            range: [0, 17],
+           },
+         ]);
+       });
+@@ -231,6 +242,7 @@ describe('Markdoc tag parser', function () {
+             type: 'attribute',
+             name: 'test',
+             value: new Variable(['foo', 1], null),
++            range: [0, 12],
+           },
+         ]);
+       });
+@@ -242,6 +254,7 @@ describe('Markdoc tag parser', function () {
+             type: 'attribute',
+             name: 'test',
+             value: new Variable(['foo', 1, 2], null),
++            range: [0, 15],
+           },
+         ]);
+       });
+@@ -253,6 +266,7 @@ describe('Markdoc tag parser', function () {
+             type: 'attribute',
+             name: 'test',
+             value: new Variable(['foo', 1, 'bar', 'baz', 2, 'test'], null),
++            range: [0, 28],
+           },
+         ]);
+       });
+@@ -268,7 +282,12 @@ describe('Markdoc tag parser', function () {
+       it('with a simple hash literal value', function () {
+         const example = parse('foo={bar: true}');
+         expect(example.meta.attributes).toDeepEqual([
+-          { type: 'attribute', name: 'foo', value: { bar: true } },
++          {
++            type: 'attribute',
++            name: 'foo',
++            value: { bar: true },
++            range: [0, 15],
++          },
+         ]);
+       });
+ 
+@@ -277,58 +296,85 @@ describe('Markdoc tag parser', function () {
+           'foo={bar: true, baz: {test: "this is a test"}}'
+         );
+         const example2 = parse('foo={bar:true,baz:{test:"this is a test"}}');
+-        const expected = [
++        const attribute = {
++          type: 'attribute',
++          name: 'foo',
++          value: {
++            bar: true,
++            baz: { test: 'this is a test' },
++          },
++        };
++        expect(example1.meta.attributes).toDeepEqual([
+           {
+-            type: 'attribute',
+-            name: 'foo',
+-            value: {
+-              bar: true,
+-              baz: { test: 'this is a test' },
+-            },
++            ...attribute,
++            range: [0, 46],
+           },
+-        ];
+-
+-        expect(example1.meta.attributes).toDeepEqual(expected);
+-        expect(example2.meta.attributes).toDeepEqual(expected);
++        ]);
++        expect(example2.meta.attributes).toDeepEqual([
++          {
++            ...attribute,
++            range: [0, 42],
++          },
++        ]);
+       });
+ 
+       it('with a hash literal that has string keys', function () {
+         const example = parse('foo={bar: true, "baz": 1}');
+         expect(example.meta.attributes).toDeepEqual([
+-          { type: 'attribute', name: 'foo', value: { bar: true, baz: 1 } },
++          {
++            type: 'attribute',
++            name: 'foo',
++            value: { bar: true, baz: 1 },
++            range: [0, 25],
++          },
+         ]);
+       });
+ 
+       it('with multiple hash literal values', function () {
+         const example = parse('foo={bar: true} baz={test: "testing"}');
+         expect(example.meta.attributes).toDeepEqual([
+-          { type: 'attribute', name: 'foo', value: { bar: true } },
+-          { type: 'attribute', name: 'baz', value: { test: 'testing' } },
++          {
++            type: 'attribute',
++            name: 'foo',
++            value: { bar: true },
++            range: [0, 15],
++          },
++          {
++            type: 'attribute',
++            name: 'baz',
++            value: { test: 'testing' },
++            range: [16, 37],
++          },
+         ]);
+       });
+ 
+       it('with an array literal value', function () {
+         const example1 = parse('foo=[1, 2, 3]');
+         const example2 = parse('foo=[1,2,3]');
+-        const expected = [{ type: 'attribute', name: 'foo', value: [1, 2, 3] }];
++        const attribute = { type: 'attribute', name: 'foo', value: [1, 2, 3] };
+ 
+-        expect(example1.meta.attributes).toDeepEqual(expected);
+-        expect(example2.meta.attributes).toDeepEqual(expected);
++        expect(example1.meta.attributes).toDeepEqual([
++          { ...attribute, range: [0, 13] },
++        ]);
++        expect(example2.meta.attributes).toDeepEqual([
++          { ...attribute, range: [0, 11] },
++        ]);
+       });
+ 
+       it('with nested array literal values', function () {
+         const example1 = parse('foo=[1, 2, ["test", true, null]]');
+         const example2 = parse('foo=[1,2,["test",true,null]]');
+-        const expected = [
+-          {
+-            type: 'attribute',
+-            name: 'foo',
+-            value: [1, 2, ['test', true, null]],
+-          },
+-        ];
+-
+-        expect(example1.meta.attributes).toDeepEqual(expected);
+-        expect(example2.meta.attributes).toDeepEqual(expected);
++        const attribute = {
++          type: 'attribute',
++          name: 'foo',
++          value: [1, 2, ['test', true, null]],
++        };
++        expect(example1.meta.attributes).toDeepEqual([
++          { ...attribute, range: [0, 32] },
++        ]);
++        expect(example2.meta.attributes).toDeepEqual([
++          { ...attribute, range: [0, 28] },
++        ]);
+       });
+ 
+       it('with multiple nested array literal values', function () {
+@@ -338,8 +384,9 @@ describe('Markdoc tag parser', function () {
+             type: 'attribute',
+             name: 'foo',
+             value: [1, 2, ['test', true, null]],
++            range: [0, 32],
+           },
+-          { type: 'attribute', name: 'bar', value: ['baz'] },
++          { type: 'attribute', name: 'bar', value: ['baz'], range: [33, 44] },
+         ]);
+       });
+ 
+@@ -350,6 +397,7 @@ describe('Markdoc tag parser', function () {
+             type: 'attribute',
+             name: 'foo',
+             value: [1, 2, { bar: 'baz', test: [1, 2, 3] }],
++            range: [0, 41],
+           },
+         ]);
+       });
+diff --git a/node_modules/@markdoc/markdoc/src/parser.ts b/node_modules/@markdoc/markdoc/src/parser.ts
+index c71257d..4fc00c6 100644
+--- a/node_modules/@markdoc/markdoc/src/parser.ts
++++ b/node_modules/@markdoc/markdoc/src/parser.ts
+@@ -96,7 +96,7 @@ function handleToken(
+ 
+   const errors = token.errors || [];
+   const parent = nodes[nodes.length - 1];
+-  const { tag, attributes, error } = token.meta || {};
++  const { tag, attributes, error, range } = token.meta || {};
+ 
+   if (token.type === 'annotation') {
+     if (inlineParent) return annotate(inlineParent, attributes);
+@@ -113,7 +113,12 @@ function handleToken(
+ 
+   if (typeName === 'error') {
+     const { message, location } = error;
+-    errors.push({ id: 'parse-error', level: 'critical', message, location });
++    errors.push({
++      id: 'parse-error',
++      level: 'critical',
++      message,
++      location,
++    });
+   }
+ 
+   if (token.nesting < 0) {
+@@ -135,6 +140,7 @@ function handleToken(
+ 
+   node.errors = errors;
+   node.lines = token.map || parent.lines || [];
++  node.range = range;
+   node.location = {
+     file,
+     start: {
+diff --git a/node_modules/@markdoc/markdoc/src/tokenizer/plugins/annotations.ts b/node_modules/@markdoc/markdoc/src/tokenizer/plugins/annotations.ts
+index 2b2eb1c..712678a 100644
+--- a/node_modules/@markdoc/markdoc/src/tokenizer/plugins/annotations.ts
++++ b/node_modules/@markdoc/markdoc/src/tokenizer/plugins/annotations.ts
+@@ -17,10 +17,30 @@ function createToken(
+   content: string,
+   contentStart?: number
+ ): Token {
++  const rangeStart = contentStart || 0;
++
+   try {
+     const { type, meta, nesting = 0 } = parse(content, { Variable, Function });
+     const token = state.push(type, '', nesting);
+     token.info = content;
++
++    if (meta.attributes && Array.isArray(meta.attributes)) {
++      meta.attributes.forEach((attr: any) => {
++        if (attr.range && Array.isArray(attr.range)) {
++          const [start, end] = attr.range;
++          attr.range = [
++            (start || 0) + rangeStart + 1,
++            (end || 0) + rangeStart + 1,
++          ];
++        }
++      });
++    }
++
++    if (meta.range) {
++      const [start, end] = meta.range;
++      meta.range = [start + rangeStart + 1, end + rangeStart + 1];
++    }
++
+     token.meta = meta;
+ 
+     if (!state.delimiters) {
+@@ -43,7 +63,19 @@ function createToken(
+       : null;
+ 
+     const token = state.push('error', '', 0);
+-    token.meta = { error: { message, location } };
++    token.meta = {
++      error: { message, location },
++      range: rangeStart
++        ? [rangeStart + start.offset + 1, rangeStart + end.offset + 1]
++        : null,
++    };
++    if (!rangeStart) {
++      const posStart = state.pos + OPEN.length + start.offset + 1;
++      token.position = {
++        start: posStart,
++        end: posStart + end.offset,
++      };
++    }
+     return token;
+   }
+ }
+diff --git a/node_modules/@markdoc/markdoc/src/types.ts b/node_modules/@markdoc/markdoc/src/types.ts
+index 0c367b7..1374e14 100644
+--- a/node_modules/@markdoc/markdoc/src/types.ts
++++ b/node_modules/@markdoc/markdoc/src/types.ts
+@@ -18,6 +18,7 @@ export type AttributeValue = {
+   type: string;
+   name: string;
+   value: any;
++  range?: [number, number];
+ };
+ 
+ export type Config = Readonly<ConfigType>;
+@@ -131,6 +132,7 @@ export type ValidationError = {
+   level: 'debug' | 'info' | 'warning' | 'error' | 'critical';
+   message: string;
+   location?: Location;
++  range?: [number, number];
+ };
+ 
+ export type ValidateError = {
+@@ -138,6 +140,7 @@ export type ValidateError = {
+   lines: number[];
+   location?: Location;
+   error: ValidationError;
++  range?: [number, number];
+ };
+ 
+ export type ValidationType =
+diff --git a/node_modules/@markdoc/markdoc/src/validator.ts b/node_modules/@markdoc/markdoc/src/validator.ts
+index 441187d..f1ce041 100644
+--- a/node_modules/@markdoc/markdoc/src/validator.ts
++++ b/node_modules/@markdoc/markdoc/src/validator.ts
+@@ -160,12 +160,16 @@ export default function validator(node: Node, config: Config) {
+ 
+   for (let [key, value] of Object.entries(node.attributes)) {
+     const attrib = attributes[key];
++    const attribRange = node.annotations.find(
++      (annotation) => annotation.name === key
++    )?.range;
+ 
+     if (!attrib) {
+       errors.push({
+         id: 'attribute-undefined',
+         level: 'error',
+         message: `Invalid attribute: '${key}'`,
++        range: attribRange,
+       });
+ 
+       continue;
+@@ -193,6 +197,7 @@ export default function validator(node: Node, config: Config) {
+             id: 'variable-undefined',
+             level: 'error',
+             message: `Undefined variable: '${value.path.join('.')}'`,
++            range: attribRange,
+           });
+         }
+       } else continue;
+@@ -207,6 +212,7 @@ export default function validator(node: Node, config: Config) {
+           id: 'attribute-type-invalid',
+           level: errorLevel || 'error',
+           message: `Attribute '${key}' must be type of '${typeToString(type)}'`,
++          range: attribRange,
+         });
+       }
+       if (Array.isArray(valid)) {
+@@ -223,6 +229,7 @@ export default function validator(node: Node, config: Config) {
+         message: `Attribute '${key}' must match one of ${JSON.stringify(
+           matches
+         )}. Got '${value}' instead.`,
++        range: attribRange,
+       });
+ 
+     if (matches instanceof RegExp && !matches.test(value))
+@@ -230,6 +237,7 @@ export default function validator(node: Node, config: Config) {
+         id: 'attribute-value-invalid',
+         level: errorLevel || 'error',
+         message: `Attribute '${key}' must match ${matches}. Got '${value}' instead.`,
++        range: attribRange,
+       });
+   }
+ 

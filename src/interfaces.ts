@@ -1,4 +1,4 @@
-import { Config } from '@mohitsinghs/markdoc'
+import { Config } from '@markdoc/markdoc/index'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   ClientCapabilities,

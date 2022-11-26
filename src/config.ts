@@ -1,8 +1,8 @@
-import Markdoc, { Config } from '@mohitsinghs/markdoc'
-import { join } from 'path'
-import { mkdirSync, existsSync, rmSync } from 'fs'
-import { tmpdir } from 'os'
+import Markdoc, { Config } from '@markdoc/markdoc/index'
 import { build } from 'esbuild-wasm'
+import { existsSync, mkdirSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 
 const DEFAULT_DIR = 'markdoc'
 const TEMP_DIR = join(tmpdir(), 'markdoc-ls')
@@ -37,7 +37,7 @@ async function buildFile(cfgRoot: string, name: string) {
   })
 
   const result = await import(join(TEMP_DIR, nameWithExt))
-  return result.default || result || {}
+  return result?.default?.default || result?.default || result || {}
 }
 
 export async function loadConfig(rootPath: string): Promise<Config> {

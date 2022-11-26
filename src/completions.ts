@@ -1,4 +1,4 @@
-import { Node, parse, ValidationError } from '@mohitsinghs/markdoc'
+import { Node, parse, ValidationError } from '@markdoc/markdoc/index'
 import {
   CompletionItem,
   CompletionItemKind,
@@ -158,7 +158,7 @@ export function completions(server: Server) {
           )
         }
         case ErrorType.unknown_error:
-          console.log(error)
+          console.log('completions: unknown error ', error)
           return []
       }
     }

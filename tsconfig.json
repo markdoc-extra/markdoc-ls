@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "lib": ["es2020"],
+    "lib": [
+      "es2020"
+    ],
     "module": "commonjs",
     "moduleResolution": "node",
     "esModuleInterop": true,
@@ -9,8 +11,13 @@
     "sourceMap": true,
     "strict": true,
     "outDir": "out",
-    "rootDir": "src"
+    "rootDir": "."
   },
-  "include": ["./src", "index.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "./src",
+    "index.ts"
+  ],
+  "exclude": [
+    "node_modules",
+  ]
 }
