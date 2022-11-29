@@ -1,9 +1,10 @@
-import { Node, parse, ValidationError } from '@markdoc/markdoc/index'
+import { ValidationError } from '@markdoc/markdoc/index'
 import {
   CompletionItem,
   CompletionItemKind,
   TextDocumentPositionParams,
 } from 'vscode-languageserver/node'
+import { find_tag, getDataAt, inRange } from './common'
 import {
   CompletionData,
   CompletionType,
@@ -11,12 +12,6 @@ import {
   Server,
   Symbols,
 } from './interfaces'
-
-function inRange(offset: number, range?: [number, number]) {
-  return range?.length && offset >= range[0] && offset <= range[1]
-}
-
-const TAG_OPEN = '{%'
 
 function getErrorType(error: ValidationError): ErrorType {
   if (!error.message) {
@@ -43,22 +38,6 @@ function getErrorType(error: ValidationError): ErrorType {
   }
 }
 
-function findInTree(node: Node, line: number): Node | undefined {
-  const childNode = node.children.find(
-    (child) =>
-      line >= child.lines[0] && line <= child.lines[child.lines.length - 1]
-  )
-  if (childNode?.children) {
-    const nodeInChild = findInTree(childNode, line)
-    if (
-      nodeInChild &&
-      (nodeInChild.type === 'tag' || nodeInChild?.type === 'error')
-    )
-      return nodeInChild
-  }
-  return childNode
-}
-
 function build_attributes(
   symbols: Symbols,
   tag_name: string,
@@ -72,7 +51,10 @@ function build_attributes(
     (attribute): CompletionItem => ({
       label: attribute,
       kind: CompletionItemKind.Field,
-      data,
+      data: {
+        ...data,
+        tagName: tag_name,
+      },
     })
   )
 }
@@ -100,29 +82,11 @@ function build_tags(symbols: Symbols, data: CompletionData): CompletionItem[] {
   )
 }
 
-function find_tag(text: string, offset: number): string {
-  const tagOpenOffset = text.substring(0, offset).lastIndexOf(TAG_OPEN)
-  const region = text.substring(tagOpenOffset, offset)
-  const tag_name = region.split(' ')[1].trim() || ''
-  return tag_name
-}
-
 export function completions(server: Server) {
   return (params: TextDocumentPositionParams): CompletionItem[] => {
-    const textDocument = server.documents.get(params.textDocument.uri)
-    if (!textDocument) return []
-    const text = textDocument.getText()
-    const pos = params.position
-    const offset = textDocument.offsetAt(pos)
-
-    let docNode: Node
-    try {
-      docNode = parse(text)
-    } catch (error) {
-      console.log('completions: failed to parse ', error)
-      return []
-    }
-    const child = findInTree(docNode, pos.line)
+    const data = getDataAt(params.position, server, params.textDocument)
+    if (!data) return []
+    const { child, offset, text } = data
 
     const tagData = { type: CompletionType.tag }
     const attributeData = { type: CompletionType.attribute }

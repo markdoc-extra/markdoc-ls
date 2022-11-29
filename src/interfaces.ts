@@ -30,6 +30,7 @@ export enum ErrorType {
 
 export interface CompletionData {
   type: CompletionType
+  tagName?: string
 }
 
 export enum CompletionType {
