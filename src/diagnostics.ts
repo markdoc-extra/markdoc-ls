@@ -7,6 +7,7 @@ import {
   TextDocumentChangeEvent,
 } from 'vscode-languageserver/node'
 import { Server } from './interfaces'
+import { setInterval } from 'timers/promises'
 
 const ErrorMap = {
   critical: DiagnosticSeverity.Error,
@@ -17,7 +18,21 @@ const ErrorMap = {
 }
 
 export function diagnostics(server: Server) {
-  return (change: TextDocumentChangeEvent<TextDocument>): void => {
+  return async (
+    change: TextDocumentChangeEvent<TextDocument>
+  ): Promise<void> => {
+    if (!server.ready) {
+      for await (const startTime of setInterval(100, Date.now())) {
+        if (server.ready) {
+          break
+        }
+        const now = Date.now()
+        if (now - startTime > 5000) {
+          console.log('failed to initialize')
+          process.exit(1)
+        }
+      }
+    }
     const textDocument = change.document
 
     const docNode = parse(textDocument.getText())
@@ -51,7 +66,6 @@ export function diagnostics(server: Server) {
       }
       diagnostics.push(diagnostic)
     })
-
     server.connection.sendDiagnostics({ uri: textDocument.uri, diagnostics })
   }
 }

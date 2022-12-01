@@ -4,7 +4,7 @@ import {
   CompletionItemKind,
   TextDocumentPositionParams,
 } from 'vscode-languageserver/node'
-import { find_tag, getDataAt, inRange } from './common'
+import { find_tag, getDataAt, inRange } from './common/parse'
 import {
   CompletionData,
   CompletionType,

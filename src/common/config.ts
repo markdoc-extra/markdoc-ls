@@ -28,7 +28,6 @@ async function buildFile(cfgRoot: string, name: string) {
   await build({
     entryPoints: [join(cfgRoot, name)],
     bundle: true,
-    minify: true,
     platform: 'node',
     loader: {
       '.js': 'jsx',

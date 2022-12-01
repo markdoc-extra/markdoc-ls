@@ -1,6 +1,6 @@
 import { Node, parse } from '@markdoc/markdoc/index'
 import { Position, TextDocumentIdentifier } from 'vscode-languageserver'
-import { Server } from './interfaces'
+import { Server } from '../interfaces'
 
 export function getDataAt(
   position: Position,
@@ -42,8 +42,8 @@ export function findInTree(node: Node, line: number): Node | undefined {
   return childNode
 }
 
-export function inRange(offset: number, range?: [number, number]) {
-  return range?.length && offset >= range[0] && offset <= range[1]
+export function inRange(offset: number, range?: [number, number]): boolean {
+  return (range?.length && offset >= range[0] && offset <= range[1]) || false
 }
 
 const TAG_OPEN = '{%'

@@ -8,6 +8,7 @@ import { completions } from './src/completions'
 import { completionResolve } from './src/completionsResolve'
 import { diagnostics } from './src/diagnostics'
 import { formatting } from './src/formatting'
+import { hover } from './src/hover'
 import { initialize, initialized } from './src/initialize'
 import { Server } from './src/interfaces'
 
@@ -22,6 +23,11 @@ export function startServer() {
       functions: [],
       attributes: {},
     },
+    completions: {
+      tags: {},
+      attributes: {},
+    },
+    ready: false,
   }
 
   const handleInitialize = initialize(server)
@@ -30,6 +36,7 @@ export function startServer() {
   const handleDiagnostics = diagnostics(server)
   const handleCompletions = completions(server)
   const handleCompletionResolve = completionResolve(server)
+  const handleHover = hover(server)
 
   server.connection.onInitialize(handleInitialize)
   server.connection.onInitialized(handleInitialized)
@@ -37,6 +44,7 @@ export function startServer() {
   server.documents.onDidChangeContent(handleDiagnostics)
   server.connection.onCompletion(handleCompletions)
   server.connection.onCompletionResolve(handleCompletionResolve)
+  server.connection.onHover(handleHover)
 
   server.documents.listen(server.connection)
   server.connection.listen()
