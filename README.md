@@ -1,4 +1,4 @@
-<h1 align="center">markdoc</h1>
+<h1 align="center">markdoc-ls</h1>
 <p align="center">
   <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/mohitsinghs/markdoc-ls/ci.yml?style=flat-square&logo=github">
   <a href="https://www.npmjs.com/package/markdoc-ls"><img src="https://img.shields.io/npm/v/markdoc-ls.svg?style=flat-square&logo=npm" alt="npm version"></a>
