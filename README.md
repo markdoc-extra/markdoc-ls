@@ -10,3 +10,35 @@
 </p>
 
 <br />
+
+## Using with Neovim
+
+This requires that you've already enabled markdoc language support with [tree-sitter-markdoc](https://github.com/markdoc-extra/tree-sitter-markdoc).
+
+1. Define new config for markdoc lanaguage server.
+
+```lua
+local configs = require("lspconfig.configs")
+if not configs.markdoc_ls then
+    configs.markdoc_ls = {
+      default_config = {
+        cmd = { "markdoc-ls", "--stdio" },
+        filetypes = { "markdoc" },
+        root_dir = function(fname)
+          return lspconfig.util.find_package_json_ancestor(fname)
+        end,
+        settings = {},
+      },
+    }
+  end
+```
+
+2. Setup language server after defining `on_attach` and `capablities`.
+
+```lua
+local lspconfig = require("lspconfig")
+lspconfig.markdoc_ls.setup({
+  on_attach = on_attach,
+  capabilities = capabilities,
+})
+```
