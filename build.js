@@ -1,6 +1,6 @@
-const { build } = require('esbuild-wasm')
+const { build } = require('esbuild')
 
-async function bundle() {
+;(async function () {
   const logger = console
   const isWatchMode = process.argv[2] === '--watch'
   try {
@@ -9,10 +9,9 @@ async function bundle() {
       bundle: true,
       minify: process.argv[2] === '--minify',
       platform: 'node',
-      external: ['esbuild-wasm'],
       outdir: 'dist/',
       format: 'cjs',
-      sourcemap: true,
+      sourcemap: false,
       watch: isWatchMode,
     })
     if (warnings.length) {
@@ -31,6 +30,4 @@ async function bundle() {
     logger.error(error)
     process.exit(1)
   }
-}
-
-bundle()
+})()

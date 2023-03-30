@@ -8,35 +8,33 @@ const NEWLINE = `
 const EMPTY = ''
 
 export async function index(server: Server, workspaceRoot: string) {
-  try {
-    const config = await loadConfig(workspaceRoot)
-    server.config = config
-    console.log('loaded config')
-    console.log('caching symbols')
+  const config = await loadConfig(workspaceRoot)
+  server.config = config
+  console.log('loaded config')
+  console.log('caching symbols')
 
-    if (server.config.functions) {
-      server.symbols.functions = Object.keys(server.config.functions)
-    }
-    if (server.config.tags) {
-      const tags = server.config.tags || {}
-      server.symbols.tags = Object.keys(tags)
-      Object.entries(tags).forEach(([tag, tagValue]) => {
-        const attributes = tags[tag].attributes || {}
-        server.symbols.attributes[tag] = Object.keys(attributes)
-        server.completions.tags[tag] = getCompletionForTag(tag, tagValue)
-        Object.entries(attributes).forEach(([attr, attrValue]) => {
-          server.completions.attributes[`${tag}_${attr}`] =
-            getCompletionForAttr(attr, attrValue)
-        })
-      })
-    }
-    server.ready = true
-    console.log(
-      `cached : ${server.symbols.functions.length} functions, ${server.symbols.tags.length} tags`
-    )
-  } catch (err) {
-    console.log('failed to load config', err)
+  if (server.config.functions) {
+    server.symbols.functions = Object.keys(server.config.functions)
   }
+  if (server.config.tags) {
+    const tags = server.config.tags || {}
+    server.symbols.tags = Object.keys(tags)
+    Object.entries(tags).forEach(([tag, tagValue]) => {
+      const attributes = tags[tag].attributes || {}
+      server.symbols.attributes[tag] = Object.keys(attributes)
+      server.completions.tags[tag] = getCompletionForTag(tag, tagValue)
+      Object.entries(attributes).forEach(([attr, attrValue]) => {
+        server.completions.attributes[`${tag}_${attr}`] = getCompletionForAttr(
+          attr,
+          attrValue
+        )
+      })
+    })
+  }
+  server.ready = true
+  console.log(
+    `cached : ${server.symbols.functions.length} functions, ${server.symbols.tags.length} tags`
+  )
 }
 
 function getCompletionForTag(tag: string, tagValue: Schema): Completion {
