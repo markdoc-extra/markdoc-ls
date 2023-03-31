@@ -1,0 +1,58 @@
+{
+  "if": {
+    "help": "if tag is used to render content based on condition. It can be used with variables and functions.\n",
+    "examples": [
+      {
+        "language": "markdoc",
+        "content": "This is shown no matter what.\n\n{% if $myFunVar %}\nOnly appear if $myFunVar!\n{% /if %}\n"
+      }
+    ]
+  },
+  "else": {
+    "help": "else tag is used to render alternate content when the if condition isn't met. Multiple else statements can be used, and the final else tag triggers when none of the other conditions are met.\n",
+    "examples": [
+      {
+        "language": "markdoc",
+        "content": "{% if $myFunVar %}\nOnly appear if $myFunVar!\n{% else /%}\nThis appears if not $myFunVar!\n{% /if %}\n"
+      },
+      {
+        "language": "markdoc",
+        "content": "{% if $myFunVar %}\nOnly appear if $myFunVar!\n{% else $otherFunVar /%}\nThis appears if not $myFunVar and $otherFunVar!\n{% else /%}\nThis appears if not $myFunVar and not $otherFunVar\n{% /if %}\n"
+      }
+    ]
+  },
+  "table": {
+    "help": "table tag supports CommonMark tables as well as a list based syntax that allows for easy injection of rich content, like bulleted lists and code samples\n",
+    "examples": [
+      {
+        "language": "markdoc",
+        "content": "{% table %}\n* Heading 1\n* Heading 2\n---\n* Row 1 Cell 1\n* Row 1 Cell 2\n---\n* Row 2 Cell 1\n* Row 2 cell 2\n{% /table %}\n"
+      },
+      {
+        "language": "markdoc",
+        "content": "{% table %}\n* Foo\n* Bar\n* Baz\n---\n*\n  ```\n  puts \"Some code here.\"\n  ```\n*\n  {% list type=\"checkmark\" %}\n  * Bulleted list in table\n  * Second item in bulleted list\n  {% /list %}\n* Text in a table\n---\n*\n  A \"loose\" list with\n\n  multiple line items\n* Test 2\n* Test 3\n---\n* Test 1\n* A cell that spans two columns {% colspan=2 %}\n{% /table %}\n"
+      },
+      {
+        "language": "markdoc",
+        "content": "{% table %}\n---\n* foo\n* bar\n---\n* foo\n* bar\n{% /table %}\n"
+      },
+      {
+        "language": "markdoc",
+        "content": "{% table %}\n---\n* foo\n* bar\n---\n* foo {% colspan=2 %}\n{% /table %}\n"
+      },
+      {
+        "language": "markdoc",
+        "content": "{% table %}\n* Column 1 {% align=\"center\" %}\n* Column 2\n* Column 3 {% align=\"right\" %}\n---\n* foo\n* bar\n* baz\n---\n* foo\n* bar {% align=\"right\" %}\n* baz\n---\n* foo {% align=\"center\" %}\n* bar\n* baz\n{% /table %}\n"
+      }
+    ]
+  },
+  "partial": {
+    "help": "partial tag is used to reuse content across docs. The content is stored in a separate markdown file, and it's referenced from the file attribute in the partial tag, which includes the corresponding piece of content.\n",
+    "examples": [
+      {
+        "language": "markdoc",
+        "content": "{% partial file=\"header.md\" /%}\n"
+      }
+    ]
+  }
+}

@@ -1,0 +1,120 @@
+if:
+  help: |
+    if tag is used to render content based on condition. It can be used with variables and functions.
+  examples:
+    - language: markdoc
+      content: |
+        This is shown no matter what.
+
+        {% if $myFunVar %}
+        Only appear if $myFunVar!
+        {% /if %}
+else:
+  help: |
+    else tag is used to render alternate content when the if condition isn't met. Multiple else statements can be used, and the final else tag triggers when none of the other conditions are met.
+  examples:
+    - language: markdoc
+      content: |
+        {% if $myFunVar %}
+        Only appear if $myFunVar!
+        {% else /%}
+        This appears if not $myFunVar!
+        {% /if %}
+    - language: markdoc
+      content: |
+        {% if $myFunVar %}
+        Only appear if $myFunVar!
+        {% else $otherFunVar /%}
+        This appears if not $myFunVar and $otherFunVar!
+        {% else /%}
+        This appears if not $myFunVar and not $otherFunVar
+        {% /if %}
+table:
+  help: |
+    table tag supports CommonMark tables as well as a list based syntax that allows for easy injection of rich content, like bulleted lists and code samples
+  examples:
+    - language: markdoc
+      content: |
+        {% table %}
+        * Heading 1
+        * Heading 2
+        ---
+        * Row 1 Cell 1
+        * Row 1 Cell 2
+        ---
+        * Row 2 Cell 1
+        * Row 2 cell 2
+        {% /table %}
+    - language: markdoc
+      content: |
+        {% table %}
+        * Foo
+        * Bar
+        * Baz
+        ---
+        *
+          ```
+          puts "Some code here."
+          ```
+        *
+          {% list type="checkmark" %}
+          * Bulleted list in table
+          * Second item in bulleted list
+          {% /list %}
+        * Text in a table
+        ---
+        *
+          A "loose" list with
+
+          multiple line items
+        * Test 2
+        * Test 3
+        ---
+        * Test 1
+        * A cell that spans two columns {% colspan=2 %}
+        {% /table %}
+    - language: markdoc
+      content: |
+        {% table %}
+        ---
+        * foo
+        * bar
+        ---
+        * foo
+        * bar
+        {% /table %}
+    - language: markdoc
+      content: |
+        {% table %}
+        ---
+        * foo
+        * bar
+        ---
+        * foo {% colspan=2 %}
+        {% /table %}
+    - language: markdoc
+      content: |
+        {% table %}
+        * Column 1 {% align="center" %}
+        * Column 2
+        * Column 3 {% align="right" %}
+        ---
+        * foo
+        * bar
+        * baz
+        ---
+        * foo
+        * bar {% align="right" %}
+        * baz
+        ---
+        * foo {% align="center" %}
+        * bar
+        * baz
+        {% /table %}
+partial:
+  help: |
+    partial tag is used to reuse content across docs. The content is stored in a separate markdown file, and it's referenced from the file attribute in the partial tag, which includes the corresponding piece of content.
+  examples:
+    - language: markdoc
+      content: |
+        {% partial file="header.md" /%}

@@ -1,0 +1,67 @@
+and:
+  signature: |
+    and($boolean1, $boolean2) : boolean
+  help: |
+    Used with the **if** tag to perform AND boolean operations and render the content when the condition is met.
+  examples:
+    - language: markdoc
+      content: |
+        This is always shown
+        {% if and($a, $b) %}
+        This is shown only if $a and $b are true.
+        {% /if %}
+or:
+  signature: |
+    or($boolean1, $boolean2) : boolean
+  help: |
+    Used with the **if** tag to perform OR boolean operations and render the content when the condition is met.
+  examples:
+    - language: markdoc
+      content: |
+        This is always shown
+        {% if or($a, $b) %}
+        This is shown only if either $a or $b is true.
+        {% /if %}
+not:
+  signature: |
+    not($boolean1, $boolean2) : boolean
+  help: |
+    Used with the **if** tag to perform NOT boolean operations and render the content when the condition is met.
+  examples:
+    - language: markdoc
+      content: |
+        This is always shown
+        {% if not($a) %}
+        This is shown only if $a is falsy.
+        {% /if %}
+equals:
+  signature: |
+    equals($myString, 'test') : boolean
+  help: |
+    Used to compare a variable against a given value. This function uses JavaScript's strict equality semantics, and is only used for primitive types.
+  examples:
+    - language: markdoc
+      content: |
+        {% if equals($myVar, "test") %}
+        The variable $myVar is equal to the string "test".
+        {% /if %}
+default:
+  signature: |
+    default($variable, true) : any
+  help: |
+    Used to set a value for a variable that might not exist.
+  examples:
+    - language: markdoc
+      content: |
+        {% if default($showPrompt, true) %}
+        Hey there!
+        {% /if %}
+debug:
+  signature: |
+    debug($anyVariable) : string
+  help: |
+    Renders the value as a serialized JSON value in the document. This can be useful for determining what value is in a variable.
+  examples:
+    - language: markdoc
+      content: |
+        {% debug($myVar) %}

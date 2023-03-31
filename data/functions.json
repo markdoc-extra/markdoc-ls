@@ -1,0 +1,57 @@
+{
+  "and": {
+    "signature": "and($boolean1, $boolean2) : boolean\n",
+    "help": "Used with the **if** tag to perform AND boolean operations and render the content when the condition is met.\n",
+    "examples": [
+      {
+        "language": "markdoc",
+        "content": "This is always shown\n{% if and($a, $b) %}\nThis is shown only if $a and $b are true.\n{% /if %}\n"
+      }
+    ]
+  },
+  "or": {
+    "signature": "or($boolean1, $boolean2) : boolean\n",
+    "help": "Used with the **if** tag to perform OR boolean operations and render the content when the condition is met.\n",
+    "examples": [
+      {
+        "language": "markdoc",
+        "content": "This is always shown\n{% if or($a, $b) %}\nThis is shown only if either $a or $b is true.\n{% /if %}\n"
+      }
+    ]
+  },
+  "not": {
+    "signature": "not($boolean1, $boolean2) : boolean\n",
+    "help": "Used with the **if** tag to perform NOT boolean operations and render the content when the condition is met.\n",
+    "examples": [
+      {
+        "language": "markdoc",
+        "content": "This is always shown\n{% if not($a) %}\nThis is shown only if $a is falsy.\n{% /if %}\n"
+      }
+    ]
+  },
+  "equals": {
+    "signature": "equals($myString, 'test') : boolean\n",
+    "help": "Used to compare a variable against a given value. This function uses JavaScript's strict equality semantics, and is only used for primitive types.\n",
+    "examples": [
+      {
+        "language": "markdoc",
+        "content": "{% if equals($myVar, \"test\") %}\nThe variable $myVar is equal to the string \"test\".\n{% /if %}\n"
+      }
+    ]
+  },
+  "default": {
+    "signature": "default($variable, true) : any\n",
+    "help": "Used to set a value for a variable that might not exist.\n",
+    "examples": [
+      {
+        "language": "markdoc",
+        "content": "{% if default($showPrompt, true) %}\nHey there!\n{% /if %}\n"
+      }
+    ]
+  },
+  "debug": {
+    "signature": "debug($anyVariable) : string\n",
+    "help": "Renders the value as a serialized JSON value in the document. This can be useful for determining what value is in a variable.\n",
+    "examples": [{ "language": "markdoc", "content": "{% debug($myVar) %}\n" }]
+  }
+}
