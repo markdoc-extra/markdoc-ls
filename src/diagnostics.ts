@@ -1,4 +1,5 @@
 import { parse, validate } from '@markdoc/markdoc/index'
+import { setInterval } from 'timers/promises'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   Diagnostic,
@@ -7,7 +8,6 @@ import {
   TextDocumentChangeEvent,
 } from 'vscode-languageserver/node'
 import { Server } from './interfaces'
-import { setInterval } from 'timers/promises'
 
 const ErrorMap = {
   critical: DiagnosticSeverity.Error,

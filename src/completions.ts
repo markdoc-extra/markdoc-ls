@@ -4,7 +4,7 @@ import {
   CompletionItemKind,
   TextDocumentPositionParams,
 } from 'vscode-languageserver/node'
-import { find_tag, getDataAt, inRange } from './common/parse'
+import { find_tag, getNode, inRange } from './common/parse'
 import {
   CompletionData,
   CompletionType,
@@ -84,7 +84,7 @@ function build_tags(symbols: Symbols, data: CompletionData): CompletionItem[] {
 
 export function completions(server: Server) {
   return (params: TextDocumentPositionParams): CompletionItem[] => {
-    const data = getDataAt(params.position, server, params.textDocument)
+    const data = getNode(params.position, server, params.textDocument)
     if (!data) return []
     const { child, offset, text } = data
 

@@ -2,7 +2,7 @@ import { Node, parse } from '@markdoc/markdoc/index'
 import { Position, TextDocumentIdentifier } from 'vscode-languageserver'
 import { Server } from '../interfaces'
 
-export function getDataAt(
+export function getNode(
   position: Position,
   server: Server,
   doc: TextDocumentIdentifier
