@@ -1,5 +1,6 @@
-import { Hover, HoverParams, MarkupKind } from 'vscode-languageserver'
-import { getDataAt, inRange } from './common/parse'
+import { Hover, HoverParams } from 'vscode-languageserver'
+import { buildContent } from './common/documentation'
+import { getNode, inRange } from './common/parse'
 import { Server } from './interfaces'
 
 const empty = {
@@ -8,49 +9,42 @@ const empty = {
 
 export function hover(server: Server) {
   return (params: HoverParams): Hover => {
-    const data = getDataAt(params.position, server, params.textDocument)
+    const data = getNode(params.position, server, params.textDocument)
     if (!data) return empty
     const { child, offset } = data
-    if (child?.type === 'tag') {
-      const attr = child.annotations.find((annotation) =>
-        inRange(offset, annotation?.range || [0, 0])
-      )
-      if (
-        attr &&
-        `${child.tag}_${attr.name}` in server.completions.attributes
-      ) {
-        const completion =
-          server.completions.attributes[`${child.tag}_${attr.name}`]
+    if (child?.type !== 'tag') return empty
+    if (
+      inRange(offset, child.range) &&
+      child.tag &&
+      child.tag in server.completions.tags
+    ) {
+      return {
+        contents: buildContent(server.completions.tags[child.tag]),
+      }
+    } else if (child.annotations.some((a) => inRange(offset, a.range))) {
+      const attr = child.annotations.find((a) => inRange(offset, a.range))
+      const lookupKey = `${child.tag}_${attr?.name}`
+      if (attr && lookupKey in server.completions.attributes) {
         return {
-          contents: {
-            kind: MarkupKind.Markdown,
-            value: [
-              '```typescript',
-              completion.detail,
-              '```',
-              completion.documentation.value,
-            ].join('\n'),
-          },
+          contents: buildContent(server.completions.attributes[lookupKey]),
         }
       }
-      if (
-        child.tag &&
-        child?.tag in server.completions.tags &&
-        inRange(offset, child?.range || [0, 0])
-      ) {
-        const completion = server.completions.tags[child.tag]
+    } else if (child.annotations.some((a) => inRange(offset, a.value?.range))) {
+      const annotation = child.annotations.find((a) =>
+        inRange(offset, a.value.range)
+      )?.value
+      const paramRanges: [number, number][] = Object.values(annotation?.ranges)
+      const paramRange = paramRanges.find((range) => inRange(offset, range))
+
+      if (!paramRange && annotation?.name) {
         return {
-          contents: {
-            kind: MarkupKind.Markdown,
-            value: [
-              '```typescript',
-              completion.detail,
-              '```',
-              completion.documentation.value,
-            ].join('\n'),
-          },
+          contents: buildContent(server.completions.functions[annotation.name]),
         }
+      } else {
+        console.log('unimplemented! function params')
       }
+    } else {
+      console.log('unimplemented! unknown location')
     }
     return empty
   }

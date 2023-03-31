@@ -1,11 +1,16 @@
-import { Schema, SchemaAttribute } from '@markdoc/markdoc/index'
-import { MarkupContent, MarkupKind } from 'vscode-languageserver'
-import { Completion, Server } from '../interfaces'
+import { CompletionItemKind, MarkupKind } from 'vscode-languageserver'
+import functions from '../../data/functions.json'
+import tags from '../../data/tags.json'
+import { Documentation, Server } from '../interfaces'
 import { loadConfig } from './config'
-
-const NEWLINE = `
-`
-const EMPTY = ''
+import {
+  buildDetailsForAttr,
+  buildDetailsForTag,
+  buildDocForAttr,
+  buildDocForBuiltin,
+  buildDocForTag,
+  buildInsertTextForAttr,
+} from './documentation'
 
 export async function index(server: Server, workspaceRoot: string) {
   const config = await loadConfig(workspaceRoot)
@@ -13,102 +18,93 @@ export async function index(server: Server, workspaceRoot: string) {
   console.log('loaded config')
   console.log('caching symbols')
 
+  // populate symbols
+  server.symbols.functions = Object.keys(server.config.functions || {})
+  server.symbols.tags = Object.keys(server.config.tags || {})
+
+  // populate function docs
   if (server.config.functions) {
-    server.symbols.functions = Object.keys(server.config.functions)
+    const builtin_funcs: Record<string, Documentation> = functions
+    Object.entries(server.config.functions || {}).forEach(([func, _]) => {
+      const common = {
+        label: func,
+        kind: CompletionItemKind.Function,
+        insertText: `${func}()`,
+      }
+      if (builtin_funcs[func]) {
+        const doc = builtin_funcs[func]
+        server.completions.functions[func] = {
+          ...common,
+          detail: doc.signature,
+          documentation: {
+            kind: MarkupKind.Markdown,
+            value: buildDocForBuiltin(doc),
+          },
+        }
+      } else {
+        server.completions.functions[func] = {
+          ...common,
+          documentation: {
+            kind: MarkupKind.Markdown,
+            value: 'Fallback',
+          },
+        }
+      }
+      console.log(server.completions.functions[func])
+    })
   }
+
   if (server.config.tags) {
-    const tags = server.config.tags || {}
-    server.symbols.tags = Object.keys(tags)
-    Object.entries(tags).forEach(([tag, tagValue]) => {
-      const attributes = tags[tag].attributes || {}
-      server.symbols.attributes[tag] = Object.keys(attributes)
-      server.completions.tags[tag] = getCompletionForTag(tag, tagValue)
-      Object.entries(attributes).forEach(([attr, attrValue]) => {
-        server.completions.attributes[`${tag}_${attr}`] = getCompletionForAttr(
-          attr,
-          attrValue
+    const builtin_tags: Record<string, Documentation> = tags
+    Object.entries(server.config.tags || {}).forEach(([tag, tagValue]) => {
+      const common = {
+        label: tag,
+        kind: CompletionItemKind.Class,
+        insertText: tag,
+        detail: buildDetailsForTag(tag, tagValue),
+      }
+      if (builtin_tags[tag]) {
+        const doc = builtin_tags[tag]
+        server.completions.tags[tag] = {
+          ...common,
+          documentation: {
+            kind: MarkupKind.Markdown,
+            value: buildDocForBuiltin(doc),
+          },
+        }
+      } else {
+        server.completions.tags[tag] = {
+          ...common,
+          documentation: {
+            kind: MarkupKind.Markdown,
+            value: buildDocForTag(tagValue),
+          },
+        }
+      }
+      console.log(server.completions.tags[tag])
+
+      if (tagValue.attributes) {
+        server.symbols.attributes[tag] = Object.keys(tagValue.attributes)
+        Object.entries(tagValue.attributes || {}).forEach(
+          ([attr, attrValue]) => {
+            server.completions.attributes[`${tag}_${attr}`] = {
+              label: tag,
+              kind: CompletionItemKind.Field,
+              insertText: buildInsertTextForAttr(attr, attrValue),
+              detail: buildDetailsForAttr(attr, attrValue),
+              documentation: {
+                kind: MarkupKind.Markdown,
+                value: buildDocForAttr(attrValue),
+              },
+            }
+            console.log(server.completions.attributes[`${tag}_${attr}`])
+          }
         )
-      })
+      }
     })
   }
   server.ready = true
   console.log(
     `cached : ${server.symbols.functions.length} functions, ${server.symbols.tags.length} tags`
   )
-}
-
-function getCompletionForTag(tag: string, tagValue: Schema): Completion {
-  const documentation: MarkupContent = {
-    kind: MarkupKind.PlainText,
-    value:
-      'description' in tagValue
-        ? (tagValue as Record<string, any>)?.description + NEWLINE
-        : EMPTY,
-  }
-
-  let detail = tag
-  if (typeof tagValue.render === 'string') {
-    detail += ` : ${tagValue.render}`
-  } else if (typeof tagValue.render === 'function') {
-    detail += ` : ${(tagValue.render as any)?.name}`
-  }
-
-  return {
-    insertText: tag,
-    detail,
-    documentation,
-  }
-}
-
-function getCompletionForAttr(
-  attr: string,
-  attrValue: SchemaAttribute
-): Completion {
-  const formatter = new Intl.ListFormat('en', {
-    style: 'long',
-    type: 'disjunction',
-  })
-
-  let insertText = `${attr}=`
-  let detail = attr
-  const documentation: MarkupContent = {
-    kind: MarkupKind.PlainText,
-    value: [
-      'description' in attrValue
-        ? (attrValue as Record<string, any>)?.description + NEWLINE
-        : EMPTY,
-      Array.isArray(attrValue?.matches)
-        ? `Should be ${formatter.format(attrValue?.matches)}`
-        : EMPTY,
-    ].join('\n'),
-  }
-
-  switch (attrValue?.type) {
-    case String:
-      insertText += `"${attrValue?.default || ''}"`
-      detail += ' : String'
-      break
-    case Array:
-      insertText += '[]'
-      detail += ' : Array'
-      break
-    case Object:
-      insertText += '{}'
-      detail += ' : Object'
-      break
-    case Boolean:
-      insertText += `${attrValue?.default || 'false'}`
-      detail += ' : Boolean'
-      break
-    case Number:
-      insertText += `${attrValue?.default || '0'}`
-      detail += ' : Number'
-      break
-  }
-
-  return {
-    insertText,
-    detail,
-    documentation,
-  }
 }

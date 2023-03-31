@@ -2,8 +2,8 @@ import { Config } from '@markdoc/markdoc/index'
 import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   ClientCapabilities,
+  CompletionItem,
   Connection,
-  MarkupContent,
   TextDocuments,
 } from 'vscode-languageserver/node'
 
@@ -13,15 +13,10 @@ export interface Symbols {
   attributes: Record<string, string[]>
 }
 
-export interface Completion {
-  detail: string
-  documentation: MarkupContent
-  insertText: string
-}
-
 export interface Completions {
-  tags: Record<string, Completion>
-  attributes: Record<string, Completion>
+  tags: Record<string, CompletionItem>
+  attributes: Record<string, CompletionItem>
+  functions: Record<string, CompletionItem>
 }
 
 export interface Server {
@@ -51,4 +46,15 @@ export enum CompletionType {
   function,
   tag,
   attribute,
+}
+
+export interface Example {
+  language: string
+  content: string
+}
+
+export interface Documentation {
+  signature?: string
+  help: string
+  examples: Example[]
 }
