@@ -1,42 +1,17 @@
-import { ValidationError } from '@markdoc/markdoc/index'
 import {
   CompletionItem,
   CompletionItemKind,
   TextDocumentPositionParams,
 } from 'vscode-languageserver/node'
-import { find_tag, getNode, inRange } from './common/parse'
+import { getErrorType } from './common/errors'
+import { findTag, getNode, inRange } from './common/parse'
 import {
   CompletionData,
   CompletionType,
   ErrorType,
   Server,
   Symbols,
-} from './interfaces'
-
-function getErrorType(error: ValidationError): ErrorType {
-  if (!error.message) {
-    return ErrorType.unknown_error
-  }
-  if (error.message.startsWith('Expected "(" or "="')) {
-    return ErrorType.attribute_or_fn_missing
-  } else if (error.message.startsWith('Expected "="')) {
-    return ErrorType.attribute_missing
-  } else if (
-    error.message.startsWith(
-      'Expected "[", "{", boolean, identifier, null, number, string, or variable'
-    )
-  ) {
-    return ErrorType.value_missing
-  } else if (
-    error.message.startsWith(
-      'Expected "/", class, id, identifier, tag name, or variable'
-    )
-  ) {
-    return ErrorType.tag_missing
-  } else {
-    return ErrorType.unknown_error
-  }
-}
+} from './common/types'
 
 function build_attributes(
   symbols: Symbols,
@@ -108,7 +83,7 @@ export function completions(server: Server) {
           return [
             ...build_attributes(
               server.symbols,
-              find_tag(text, offset),
+              findTag(text, offset),
               attributeData
             ),
             ...build_functions(server.symbols, functionData),
@@ -117,7 +92,7 @@ export function completions(server: Server) {
         case ErrorType.attribute_missing: {
           return build_attributes(
             server.symbols,
-            find_tag(text, offset),
+            findTag(text, offset),
             attributeData
           )
         }

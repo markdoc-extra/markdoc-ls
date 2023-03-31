@@ -7,7 +7,7 @@ import {
   Range,
   TextDocumentChangeEvent,
 } from 'vscode-languageserver/node'
-import { Server } from './interfaces'
+import { Server } from './common/types'
 
 const ErrorMap = {
   critical: DiagnosticSeverity.Error,

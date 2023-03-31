@@ -1,5 +1,5 @@
 import { CompletionItem } from 'vscode-languageserver/node'
-import { CompletionData, CompletionType, Server } from './interfaces'
+import { CompletionData, CompletionType, Server } from './common/types'
 
 export function completionResolve(server: Server) {
   return (item: CompletionItem): CompletionItem => {

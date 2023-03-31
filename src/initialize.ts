@@ -7,7 +7,7 @@ import {
 } from 'vscode-languageserver/node'
 import { URI } from 'vscode-uri'
 import { index } from './common/indexing'
-import { Server } from './interfaces'
+import { Server } from './common/types'
 
 export function initialize(server: Server) {
   return async (

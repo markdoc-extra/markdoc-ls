@@ -4,7 +4,7 @@ import {
   MarkupContent,
   MarkupKind,
 } from 'vscode-languageserver'
-import { Documentation, Example } from '../interfaces'
+import { Documentation, Example } from './types'
 
 const REGION_CODE = '```'
 const REGION_MARKDOC = '```markdoc'

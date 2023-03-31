@@ -1,7 +1,7 @@
 import { Hover, HoverParams } from 'vscode-languageserver'
 import { buildContent } from './common/documentation'
 import { getNode, inRange } from './common/parse'
-import { Server } from './interfaces'
+import { Server } from './common/types'
 
 const empty = {
   contents: '',

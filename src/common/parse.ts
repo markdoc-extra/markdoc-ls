@@ -1,6 +1,6 @@
 import { Node, parse } from '@markdoc/markdoc/index'
 import { Position, TextDocumentIdentifier } from 'vscode-languageserver'
-import { Server } from '../interfaces'
+import { Server } from './types'
 
 export function getNode(
   position: Position,
@@ -48,7 +48,7 @@ export function inRange(offset: number, range?: [number, number]): boolean {
 
 const TAG_OPEN = '{%'
 
-export function find_tag(text: string, offset: number): string {
+export function findTag(text: string, offset: number): string {
   const tagOpenOffset = text.substring(0, offset).lastIndexOf(TAG_OPEN)
   const region = text.substring(tagOpenOffset, offset)
   const tag_name = region.split(' ')[1].trim() || ''

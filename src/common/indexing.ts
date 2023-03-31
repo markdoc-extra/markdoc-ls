@@ -1,7 +1,6 @@
 import { CompletionItemKind, MarkupKind } from 'vscode-languageserver'
 import functions from '../../data/functions.json'
 import tags from '../../data/tags.json'
-import { Documentation, Server } from '../interfaces'
 import { loadConfig } from './config'
 import {
   buildDetailsForAttr,
@@ -11,6 +10,7 @@ import {
   buildDocForTag,
   buildInsertTextForAttr,
 } from './documentation'
+import { Documentation, Server } from './types'
 
 export async function index(server: Server, workspaceRoot: string) {
   const config = await loadConfig(workspaceRoot)

@@ -6,7 +6,7 @@ import {
   TextEdit,
   uinteger,
 } from 'vscode-languageserver/node'
-import { Server } from './interfaces'
+import { Server } from './common/types'
 
 export function formatting(server: Server) {
   return (params: DocumentFormattingParams): TextEdit[] => {

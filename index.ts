@@ -4,13 +4,13 @@ import {
   ProposedFeatures,
   TextDocuments,
 } from 'vscode-languageserver/node'
+import { Server } from './src/common/types'
 import { completions } from './src/completions'
 import { completionResolve } from './src/completionsResolve'
 import { diagnostics } from './src/diagnostics'
 import { formatting } from './src/formatting'
 import { hover } from './src/hover'
 import { initialize, initialized } from './src/initialize'
-import { Server } from './src/interfaces'
 
 export function startServer() {
   const server: Server = {
@@ -26,6 +26,7 @@ export function startServer() {
     completions: {
       tags: {},
       attributes: {},
+      functions: {},
     },
     ready: false,
   }
