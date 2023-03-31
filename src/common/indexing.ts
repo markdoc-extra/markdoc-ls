@@ -50,7 +50,6 @@ export async function index(server: Server, workspaceRoot: string) {
           },
         }
       }
-      console.log(server.completions.functions[func])
     })
   }
 
@@ -81,7 +80,6 @@ export async function index(server: Server, workspaceRoot: string) {
           },
         }
       }
-      console.log(server.completions.tags[tag])
 
       if (tagValue.attributes) {
         server.symbols.attributes[tag] = Object.keys(tagValue.attributes)
@@ -97,7 +95,6 @@ export async function index(server: Server, workspaceRoot: string) {
                 value: buildDocForAttr(attrValue),
               },
             }
-            console.log(server.completions.attributes[`${tag}_${attr}`])
           }
         )
       }
