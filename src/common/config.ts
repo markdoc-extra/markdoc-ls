@@ -1,6 +1,6 @@
 import { Config } from '@markdoc/markdoc'
 import Markdoc from '@markdoc/markdoc/index'
-import { stat } from 'fs/promises'
+import { existsSync } from 'fs'
 import { join } from 'path'
 
 const DEFAULT_DIR = 'markdoc'
@@ -25,7 +25,7 @@ Please note that esm configs are not supported.
 export async function loadConfig(rootPath: string): Promise<Config> {
   const configPath = join(rootPath, DEFAULT_DIR)
   let result = {}
-  if ((await stat(configPath))?.isDirectory()) {
+  if (existsSync(configPath)) {
     const tags = await loadFile(configPath, 'tags')
     const nodes = await loadFile(configPath, 'nodes')
     const functions = await loadFile(configPath, 'functions')
@@ -34,7 +34,6 @@ export async function loadConfig(rootPath: string): Promise<Config> {
       nodes: { ...nodes, ...Markdoc.nodes },
       functions: { ...functions, ...Markdoc.functions },
     }
-    console.log({ result })
   } else {
     result = {
       tags: Markdoc.tags,
