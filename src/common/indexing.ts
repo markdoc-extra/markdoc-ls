@@ -1,4 +1,4 @@
-import { CompletionItemKind, MarkupKind } from 'vscode-languageserver'
+import { CompletionItemKind, MarkupKind } from 'vscode-languageserver/node'
 import functions from '../../data/functions.json'
 import tags from '../../data/tags.json'
 import { loadConfig } from './config'

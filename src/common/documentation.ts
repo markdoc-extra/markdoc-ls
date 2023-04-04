@@ -3,7 +3,7 @@ import {
   CompletionItem,
   MarkupContent,
   MarkupKind,
-} from 'vscode-languageserver'
+} from 'vscode-languageserver/node'
 import { Documentation, Example } from './types'
 
 const REGION_CODE = '```'

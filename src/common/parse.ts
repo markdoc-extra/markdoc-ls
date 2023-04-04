@@ -1,5 +1,5 @@
 import { Node, parse } from '@markdoc/markdoc/index'
-import { Position, TextDocumentIdentifier } from 'vscode-languageserver'
+import { Position, TextDocumentIdentifier } from 'vscode-languageserver/node'
 import { Server } from './types'
 
 export function getNode(

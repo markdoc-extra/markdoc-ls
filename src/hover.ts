@@ -1,4 +1,4 @@
-import { Hover, HoverParams } from 'vscode-languageserver'
+import { Hover, HoverParams } from 'vscode-languageserver/node'
 import { buildContent } from './common/documentation'
 import { getNode, inRange } from './common/parse'
 import { Server } from './common/types'
