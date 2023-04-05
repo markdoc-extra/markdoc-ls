@@ -7,6 +7,23 @@ import {
   TextDocuments,
 } from 'vscode-languageserver/node'
 
+export enum ModuleType {
+  CJS,
+  ESM,
+  Unknown,
+}
+
+export enum ConfigType {
+  File,
+  Dir,
+  Unknown,
+}
+
+export interface ConfigMeta {
+  module: ModuleType
+  config: ConfigType
+}
+
 export interface Symbols {
   tags: string[]
   functions: string[]
