@@ -7,6 +7,21 @@ import {
   TextDocuments,
 } from 'vscode-languageserver/node'
 
+export enum ConfigKind {
+  RootConfig,
+  Config,
+  Nodes,
+  Tags,
+  Functions,
+  Unknown,
+}
+
+export interface ConfigMeta {
+  kind: ConfigKind
+  path: string
+  parent: string
+}
+
 export interface Symbols {
   tags: string[]
   functions: string[]
