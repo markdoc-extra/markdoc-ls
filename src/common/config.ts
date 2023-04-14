@@ -25,18 +25,26 @@ const PluginStubUnsupported: Plugin = {
 async function loadFile(meta: ConfigMeta) {
   const ts = new Date().getTime()
   const tmpFile = `${ts}-${basename(meta.path).replace(/m?[tj]s$/, 'mjs')}`
-  await build({
-    absWorkingDir: meta.parent,
-    entryPoints: [meta.path],
-    outfile: tmpFile,
-    platform: 'node',
-    format: 'esm',
-    jsx: 'transform',
-    loader: { '.js': 'jsx' },
-    bundle: true,
-    sourcemap: false,
-    plugins: [PluginStubUnsupported],
-  })
+  try {
+    await build({
+      absWorkingDir: meta.parent,
+      entryPoints: [meta.path],
+      outfile: tmpFile,
+      platform: 'node',
+      format: 'esm',
+      jsx: 'transform',
+      loader: { '.js': 'jsx' },
+      bundle: true,
+      sourcemap: false,
+      plugins: [PluginStubUnsupported],
+    })
+  } catch (e) {
+    console.log(
+      `failed to build config. path : ${meta.path}, working dir : ${meta.parent}`,
+      e
+    )
+  }
+
   try {
     const cfg = await import(join(meta.parent, tmpFile))
     return cfg?.default || cfg || {}
