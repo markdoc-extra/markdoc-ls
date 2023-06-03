@@ -1,39 +1,3 @@
-diff --git a/node_modules/@markdoc/markdoc/index.ts b/node_modules/@markdoc/markdoc/index.ts
-index 75b1385..12ff1a8 100644
---- a/node_modules/@markdoc/markdoc/index.ts
-+++ b/node_modules/@markdoc/markdoc/index.ts
-@@ -93,16 +93,27 @@ export function validate<C extends Config = Config>(
-   const config = mergeConfig(options);
- 
-   const output = [content, ...content.walk()].map((node) => {
--    const { type, lines, location } = node;
-+    const { type, lines, location, range } = node as Node;
-     const errors = validator(node, config);
--
-     if (isPromise(errors)) {
-       return errors.then((e) =>
--        e.map((error) => ({ type, lines, location, error }))
-+        e.map((error) => ({
-+          type,
-+          lines,
-+          location,
-+          range: error.range || range,
-+          error,
-+        }))
-       );
-     }
- 
--    return errors.map((error) => ({ type, lines, location, error }));
-+    return errors.map((error) => ({
-+      type,
-+      lines,
-+      location,
-+      range: error.range || range,
-+      error,
-+    }));
-   });
- 
-   if (output.some(isPromise)) {
 diff --git a/node_modules/@markdoc/markdoc/src/ast/function.ts b/node_modules/@markdoc/markdoc/src/ast/function.ts
 index 417b9c1..cad0742 100644
 --- a/node_modules/@markdoc/markdoc/src/ast/function.ts
@@ -66,10 +30,10 @@ index 417b9c1..cad0742 100644
  
    resolve(config: Config = {}) {
 diff --git a/node_modules/@markdoc/markdoc/src/ast/node.ts b/node_modules/@markdoc/markdoc/src/ast/node.ts
-index 284bcf7..a09d061 100644
+index 0e2d3e6..e808362 100644
 --- a/node_modules/@markdoc/markdoc/src/ast/node.ts
 +++ b/node_modules/@markdoc/markdoc/src/ast/node.ts
-@@ -22,6 +22,7 @@ export default class Node implements AstType {
+@@ -23,6 +23,7 @@ export default class Node implements AstType {
    lines: number[] = [];
    type: NodeType;
    tag?: string;
@@ -77,46 +41,6 @@ index 284bcf7..a09d061 100644
    annotations: AttributeValue[];
  
    inline = false;
-diff --git a/node_modules/@markdoc/markdoc/src/formatter.ts b/node_modules/@markdoc/markdoc/src/formatter.ts
-index 1cefd77..9b7c8b0 100644
---- a/node_modules/@markdoc/markdoc/src/formatter.ts
-+++ b/node_modules/@markdoc/markdoc/src/formatter.ts
-@@ -12,8 +12,8 @@ type Options = {
- const SPACE = ' ';
- const SEP = ', '; // Value separator
- const NL = '\n'; //  Newline
--const OL = '1. '; // Ordered list
--const UL = '- '; //  Unordered list
-+const OL = '.'; // Ordered list
-+const UL = '-'; //  Unordered list
- 
- const MAX_TAG_OPENING_WIDTH = 80;
- 
-@@ -287,10 +287,12 @@ function* formatNode(n: Node, o: Options = {}) {
-       break;
-     }
-     case 'list': {
--      const prefix = n.attributes.ordered ? OL : UL;
-+      const prefix = n.attributes.ordered
-+        ? `1${n.attributes.marker ?? OL}`
-+        : n.attributes.marker ?? UL;
-       for (const child of n.children) {
--        const d = format(child, increment(no, prefix.length)).trim();
--        yield NL + indent + prefix + d;
-+        const d = format(child, increment(no, prefix.length + 1)).trim();
-+        yield NL + indent + prefix + ' ' + d;
-       }
-       yield NL;
-       break;
-@@ -353,7 +355,7 @@ function* formatNode(n: Node, o: Options = {}) {
-               yield indent + '---';
-             }
-             for (const d of row) {
--              yield NL + indent + UL + d;
-+              yield NL + indent + UL + ' ' + d;
-             }
-           }
-         }
 diff --git a/node_modules/@markdoc/markdoc/src/grammar/tag.js b/node_modules/@markdoc/markdoc/src/grammar/tag.js
 index f7c26a0..ee8df15 100644
 --- a/node_modules/@markdoc/markdoc/src/grammar/tag.js
@@ -643,22 +567,10 @@ index 4815cd8..bc45a5f 100644
  
  FunctionParameterTail =
 diff --git a/node_modules/@markdoc/markdoc/src/parser.ts b/node_modules/@markdoc/markdoc/src/parser.ts
-index c71257d..8be6a9e 100644
+index cdc23da..6050822 100644
 --- a/node_modules/@markdoc/markdoc/src/parser.ts
 +++ b/node_modules/@markdoc/markdoc/src/parser.ts
-@@ -31,7 +31,10 @@ function handleAttrs(token: Token, type: string) {
-     case 'heading':
-       return { level: Number(token.tag.replace('h', '')) };
-     case 'list':
--      return { ordered: token.type.startsWith('ordered') };
-+      return {
-+        ordered: token.type.startsWith('ordered'),
-+        marker: token.markup,
-+      };
-     case 'link': {
-       const attrs = Object.fromEntries(token.attrs);
-       return attrs.title
-@@ -96,7 +99,7 @@ function handleToken(
+@@ -105,7 +105,7 @@ function handleToken(
  
    const errors = token.errors || [];
    const parent = nodes[nodes.length - 1];
@@ -667,7 +579,7 @@ index c71257d..8be6a9e 100644
  
    if (token.type === 'annotation') {
      if (inlineParent) return annotate(inlineParent, attributes);
-@@ -113,7 +116,12 @@ function handleToken(
+@@ -122,7 +122,12 @@ function handleToken(
  
    if (typeName === 'error') {
      const { message, location } = error;
@@ -681,7 +593,7 @@ index c71257d..8be6a9e 100644
    }
  
    if (token.nesting < 0) {
-@@ -135,6 +143,7 @@ function handleToken(
+@@ -144,6 +149,7 @@ function handleToken(
  
    node.errors = errors;
    node.lines = token.map || parent.lines || [];
@@ -689,18 +601,6 @@ index c71257d..8be6a9e 100644
    node.location = {
      file,
      start: {
-diff --git a/node_modules/@markdoc/markdoc/src/schema.ts b/node_modules/@markdoc/markdoc/src/schema.ts
-index 2ea3c5c..2e90fff 100644
---- a/node_modules/@markdoc/markdoc/src/schema.ts
-+++ b/node_modules/@markdoc/markdoc/src/schema.ts
-@@ -101,6 +101,7 @@ export const list: Schema = {
-   children: ['item'],
-   attributes: {
-     ordered: { type: Boolean, render: false, required: true },
-+    marker: { type: String, render: false },
-   },
-   transform(node, config) {
-     return new Tag(
 diff --git a/node_modules/@markdoc/markdoc/src/tokenizer/plugins/annotations.ts b/node_modules/@markdoc/markdoc/src/tokenizer/plugins/annotations.ts
 index 2b2eb1c..712678a 100644
 --- a/node_modules/@markdoc/markdoc/src/tokenizer/plugins/annotations.ts
@@ -758,7 +658,7 @@ index 2b2eb1c..712678a 100644
    }
  }
 diff --git a/node_modules/@markdoc/markdoc/src/types.ts b/node_modules/@markdoc/markdoc/src/types.ts
-index 0c367b7..1374e14 100644
+index 01675f2..e3a1c75 100644
 --- a/node_modules/@markdoc/markdoc/src/types.ts
 +++ b/node_modules/@markdoc/markdoc/src/types.ts
 @@ -18,6 +18,7 @@ export type AttributeValue = {
@@ -769,7 +669,7 @@ index 0c367b7..1374e14 100644
  };
  
  export type Config = Readonly<ConfigType>;
-@@ -131,6 +132,7 @@ export type ValidationError = {
+@@ -140,6 +141,7 @@ export type ValidationError = {
    level: 'debug' | 'info' | 'warning' | 'error' | 'critical';
    message: string;
    location?: Location;
@@ -777,7 +677,7 @@ index 0c367b7..1374e14 100644
  };
  
  export type ValidateError = {
-@@ -138,6 +140,7 @@ export type ValidateError = {
+@@ -147,6 +149,7 @@ export type ValidateError = {
    lines: number[];
    location?: Location;
    error: ValidationError;
@@ -786,10 +686,10 @@ index 0c367b7..1374e14 100644
  
  export type ValidationType =
 diff --git a/node_modules/@markdoc/markdoc/src/validator.ts b/node_modules/@markdoc/markdoc/src/validator.ts
-index 441187d..f1ce041 100644
+index 6ddf865..d8f7760 100644
 --- a/node_modules/@markdoc/markdoc/src/validator.ts
 +++ b/node_modules/@markdoc/markdoc/src/validator.ts
-@@ -160,12 +160,16 @@ export default function validator(node: Node, config: Config) {
+@@ -176,12 +176,16 @@ export default function validator(node: Node, config: Config) {
  
    for (let [key, value] of Object.entries(node.attributes)) {
      const attrib = attributes[key];
@@ -806,7 +706,7 @@ index 441187d..f1ce041 100644
        });
  
        continue;
-@@ -193,6 +197,7 @@ export default function validator(node: Node, config: Config) {
+@@ -209,6 +213,7 @@ export default function validator(node: Node, config: Config) {
              id: 'variable-undefined',
              level: 'error',
              message: `Undefined variable: '${value.path.join('.')}'`,
@@ -814,7 +714,7 @@ index 441187d..f1ce041 100644
            });
          }
        } else continue;
-@@ -207,6 +212,7 @@ export default function validator(node: Node, config: Config) {
+@@ -223,6 +228,7 @@ export default function validator(node: Node, config: Config) {
            id: 'attribute-type-invalid',
            level: errorLevel || 'error',
            message: `Attribute '${key}' must be type of '${typeToString(type)}'`,
@@ -822,19 +722,19 @@ index 441187d..f1ce041 100644
          });
        }
        if (Array.isArray(valid)) {
-@@ -223,6 +229,7 @@ export default function validator(node: Node, config: Config) {
-         message: `Attribute '${key}' must match one of ${JSON.stringify(
-           matches
+@@ -240,6 +246,7 @@ export default function validator(node: Node, config: Config) {
+           matches,
+           8
          )}. Got '${value}' instead.`,
 +        range: attribRange,
        });
  
      if (matches instanceof RegExp && !matches.test(value))
-@@ -230,6 +237,7 @@ export default function validator(node: Node, config: Config) {
+@@ -247,6 +254,7 @@ export default function validator(node: Node, config: Config) {
          id: 'attribute-value-invalid',
          level: errorLevel || 'error',
          message: `Attribute '${key}' must match ${matches}. Got '${value}' instead.`,
 +        range: attribRange,
        });
-   }
  
+     if (typeof attrib.validate === 'function') {
