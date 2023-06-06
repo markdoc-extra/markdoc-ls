@@ -6,7 +6,7 @@ try {
     bundle: true,
     minify: process.argv[2] === '--minify',
     platform: 'node',
-    external: ["esbuild-wasm"],
+    external: ['esbuild-wasm'],
     outdir: 'dist/',
     format: 'cjs',
     sourcemap: false,

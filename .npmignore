@@ -1,8 +1,13 @@
-index.ts
-dist/**/*.map
+# source
 src/**
+index.ts
+data
+
+# dev configs and scripts
 .eslint*
 .prettierrc
 tsconfig.json
-build.js
+scripts
+
+# package patches
 patches
