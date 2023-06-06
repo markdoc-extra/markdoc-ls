@@ -1,7 +1,7 @@
 {
   "name": "markdoc-ls",
   "description": "Markdoc language server in node",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "author": "Mohit Singh <mohit@mohitsingh.in>",
   "license": "MIT",
   "engines": {
