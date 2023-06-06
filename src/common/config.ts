@@ -117,7 +117,7 @@ async function getConfigPaths(rootPath: string): Promise<ConfigMeta[]> {
     }
   } else {
     const configAtRoot = getConfigMeta(rootPath, MD_CONF_AT_ROOT)
-    if (configAtRoot) {
+    if (configAtRoot.path) {
       console.log(`Markdoc config (Astro) detected at ${rootPath}\n`)
       return [configAtRoot]
     } else {
