@@ -1,0 +1,65 @@
+import {
+  CancellationToken,
+  InitializeParams,
+  InitializeResult,
+  TextDocumentSyncKind,
+  WorkDoneProgressReporter,
+} from 'vscode-languageserver/node'
+import { URI } from 'vscode-uri'
+import { index } from '../common/indexer'
+import { Server } from '../common/types'
+import { Schema } from '../stores'
+
+export default class InitProvider {
+  private server: Server
+
+  constructor(server: Server) {
+    this.server = server
+  }
+
+  listen() {
+    this.server.connection.onInitialize(this.initialize.bind(this))
+    this.server.connection.onInitialized(this.initialized.bind(this))
+  }
+
+  async initialize(
+    params: InitializeParams,
+    _cancel: CancellationToken,
+    progress: WorkDoneProgressReporter
+  ): Promise<InitializeResult> {
+    this.server.capabilities = params.capabilities
+
+    const result: InitializeResult = {
+      capabilities: {
+        textDocumentSync: TextDocumentSyncKind.Incremental,
+        completionProvider: {
+          resolveProvider: true,
+        },
+        documentFormattingProvider: true,
+        hoverProvider: true,
+      },
+    }
+    progress.done()
+    return result
+  }
+
+  async initialized() {
+    const progress =
+      await this.server.connection.window.createWorkDoneProgress()
+    const folders =
+      (await this.server.connection.workspace.getWorkspaceFolders()) ?? []
+
+    if (folders.length) {
+      progress.begin('Indexing')
+      const workspaceRoot = URI.parse(folders[0].uri).fsPath
+      this.server.schema = await Schema.from(workspaceRoot).load()
+      await index(this.server)
+      progress.done()
+    }
+    this.server.connection.workspace.onDidChangeWorkspaceFolders((_event) => {
+      this.server.connection.console.log(
+        'Workspace folder change event received.'
+      )
+    })
+  }
+}

@@ -1,7 +1,7 @@
+import { Config, Node } from '@markdoc/markdoc/index'
 import { CompletionItemKind, MarkupKind } from 'vscode-languageserver/node'
 import functions from '../../data/functions.json'
 import tags from '../../data/tags.json'
-import { loadConfig } from './config'
 import {
   buildDetailsForAttr,
   buildDetailsForTag,
@@ -12,20 +12,36 @@ import {
 } from './documentation'
 import { Documentation, Server } from './types'
 
-export async function index(server: Server, workspaceRoot: string) {
-  const config = await loadConfig(workspaceRoot)
-  server.config = config
-  console.log('loaded config')
+export enum MSymbolKind {
+  Tag,
+  Function,
+  Variables,
+  Attributes,
+}
+
+export interface MSymbol {
+  kind: MSymbolKind
+  value: string
+  parent: string
+}
+
+export interface MIndex {
+  documents: Record<string, Node>
+  symbols: Record<string, MSymbol>
+}
+
+export async function index(server: Server) {
   console.log('caching symbols')
+  const schema = server.schema?.get() as Config
 
   // populate symbols
-  server.symbols.functions = Object.keys(server.config.functions || {})
-  server.symbols.tags = Object.keys(server.config.tags || {})
+  server.symbols.functions = Object.keys(schema.functions || {})
+  server.symbols.tags = Object.keys(schema.tags || {})
 
   // populate function docs
-  if (server.config.functions) {
+  if (schema.functions) {
     const builtin_funcs: Record<string, Documentation> = functions
-    Object.entries(server.config.functions || {}).forEach(([func, _]) => {
+    Object.entries(schema.functions || {}).forEach(([func, _]) => {
       const common = {
         label: func,
         kind: CompletionItemKind.Function,
@@ -53,9 +69,9 @@ export async function index(server: Server, workspaceRoot: string) {
     })
   }
 
-  if (server.config.tags) {
+  if (schema.tags) {
     const builtin_tags: Record<string, Documentation> = tags
-    Object.entries(server.config.tags || {}).forEach(([tag, tagValue]) => {
+    Object.entries(schema.tags || {}).forEach(([tag, tagValue]) => {
       const common = {
         label: tag,
         kind: CompletionItemKind.Class,

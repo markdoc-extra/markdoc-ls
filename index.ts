@@ -1,22 +1,21 @@
-import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   createConnection,
+  FileChangeType,
   ProposedFeatures,
-  TextDocuments,
 } from 'vscode-languageserver/node'
+import { URI } from 'vscode-uri'
 import { Server } from './src/common/types'
-import { completions } from './src/completions'
-import { completionResolve } from './src/completionsResolve'
-import { diagnostics } from './src/diagnostics'
-import { formatting } from './src/formatting'
-import { hover } from './src/hover'
-import { initialize, initialized } from './src/initialize'
+import CompletionsProvider from './src/providers/completions'
+import DiagnosticsProvider from './src/providers/diagnostics'
+import FormattingProvider from './src/providers/formatting'
+import HoverProvider from './src/providers/hover'
+import InitProvider from './src/providers/init'
+import { Documents } from './src/stores'
 
 export function startServer() {
   const server: Server = {
     connection: createConnection(ProposedFeatures.all),
-    documents: new TextDocuments(TextDocument),
-    config: {},
+    documents: new Documents(),
     capabilities: {},
     symbols: {
       tags: [],
@@ -31,21 +30,28 @@ export function startServer() {
     ready: false,
   }
 
-  const handleInitialize = initialize(server)
-  const handleInitialized = initialized(server)
-  const handleFormatting = formatting(server)
-  const handleDiagnostics = diagnostics(server)
-  const handleCompletions = completions(server)
-  const handleCompletionResolve = completionResolve(server)
-  const handleHover = hover(server)
+  const initProvider = new InitProvider(server)
+  const formattingProvider = new FormattingProvider(server)
+  const diagnosticsProvider = new DiagnosticsProvider(server)
+  const completionProvider = new CompletionsProvider(server)
+  const hoverProvider = new HoverProvider(server)
 
-  server.connection.onInitialize(handleInitialize)
-  server.connection.onInitialized(handleInitialized)
-  server.connection.onDocumentFormatting(handleFormatting)
-  server.documents.onDidChangeContent(handleDiagnostics)
-  server.connection.onCompletion(handleCompletions)
-  server.connection.onCompletionResolve(handleCompletionResolve)
-  server.connection.onHover(handleHover)
+  initProvider.listen()
+  formattingProvider.listen()
+  diagnosticsProvider.listen()
+  completionProvider.listen()
+  hoverProvider.listen()
+
+  server.connection.onDidChangeWatchedFiles(({ changes }) => {
+    changes.forEach((change) => {
+      if (change.type === FileChangeType.Changed) {
+        const filePath = URI.parse(change.uri).fsPath
+        if (server.schema?.isSchemaPath(filePath)) {
+          server.schema.reload(filePath)
+        }
+      }
+    })
+  })
 
   server.documents.listen(server.connection)
   server.connection.listen()
