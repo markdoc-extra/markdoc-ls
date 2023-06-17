@@ -1,4 +1,4 @@
-import Markdoc, { Config } from '@markdoc/markdoc/index'
+import Markdoc, { Config, ConfigType } from '@markdoc/markdoc/index'
 import { existsSync } from 'fs'
 import merge from 'lodash.merge'
 import { join } from 'path'
@@ -10,6 +10,8 @@ enum SchemaKind {
   Nodes,
   Tags,
   Functions,
+  Variables,
+  Partials,
   Unknown,
 }
 
@@ -17,6 +19,8 @@ const kindLookup: Record<string, SchemaKind> = {
   nodes: SchemaKind.Nodes,
   tags: SchemaKind.Tags,
   functions: SchemaKind.Functions,
+  variables: SchemaKind.Variables,
+  partials: SchemaKind.Partials,
   config: SchemaKind.Schema,
   'markdoc.config': SchemaKind.RootSchema,
 }
@@ -31,7 +35,14 @@ export class Schema {
   private schemaDir = 'markdoc'
   private schemaAtRoot = 'markdoc.config'
   private allowedExtensions = ['cjs', 'cts', 'js', 'mjs', 'ts', 'mts']
-  private allowedFiles = ['tags', 'nodes', 'functions', 'config']
+  private allowedFiles = [
+    'tags',
+    'nodes',
+    'functions',
+    'variables',
+    'partials',
+    'config',
+  ]
 
   private rootPath: string
   private schema: Config
@@ -100,7 +111,7 @@ export class Schema {
   }
 
   async load(): Promise<Schema> {
-    let result = {
+    let result: ConfigType = {
       tags: Markdoc.tags,
       nodes: Markdoc.nodes,
       functions: Markdoc.functions,
@@ -118,6 +129,12 @@ export class Schema {
             break
           case SchemaKind.Tags:
             result.tags = merge(result.tags, schema)
+            break
+          case SchemaKind.Variables:
+            result.variables = schema
+            break
+          case SchemaKind.Partials:
+            result.partials = schema
             break
           case SchemaKind.Schema:
           case SchemaKind.RootSchema:
