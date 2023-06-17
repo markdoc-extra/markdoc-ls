@@ -26,8 +26,4 @@ function findTagStart(text: string, offset: number): number {
   return text.substring(0, offset).lastIndexOf(TAG_OPEN)
 }
 
-function findTagName(text: string) {
-  return text.split(' ')[1].trim() || ''
-}
-
-export { findInTree, inRange, findTagStart, findTagName, TAG_OPEN }
+export { findInTree, inRange, findTagStart, TAG_OPEN }
