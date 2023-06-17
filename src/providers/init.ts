@@ -36,6 +36,7 @@ export default class InitProvider {
           resolveProvider: true,
         },
         documentFormattingProvider: true,
+        documentRangeFormattingProvider: true,
         hoverProvider: true,
       },
     }
