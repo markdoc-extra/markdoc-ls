@@ -1,4 +1,4 @@
-import { Schema, SchemaAttribute } from '@markdoc/markdoc'
+import { Schema, SchemaAttribute } from '@markdoc/markdoc/index'
 import {
   CompletionItem,
   MarkupContent,

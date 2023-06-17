@@ -1,26 +1,10 @@
-import { Config } from '@markdoc/markdoc/index'
-import { TextDocument } from 'vscode-languageserver-textdocument'
 import {
   ClientCapabilities,
   CompletionItem,
   Connection,
-  TextDocuments,
 } from 'vscode-languageserver/node'
-
-export enum ConfigKind {
-  RootConfig,
-  Config,
-  Nodes,
-  Tags,
-  Functions,
-  Unknown,
-}
-
-export interface ConfigMeta {
-  kind: ConfigKind
-  path: string
-  parent: string
-}
+import { Documents } from '../stores/documents'
+import { Schema } from '../stores/schema'
 
 export interface Symbols {
   tags: string[]
@@ -36,20 +20,12 @@ export interface Completions {
 
 export interface Server {
   connection: Connection
-  config: Config
-  documents: TextDocuments<TextDocument>
+  schema?: Schema
+  documents: Documents
   capabilities: ClientCapabilities
   symbols: Symbols
   completions: Completions
   ready: boolean
-}
-
-export enum ErrorType {
-  value_missing,
-  attribute_or_fn_missing,
-  attribute_missing,
-  tag_missing,
-  unknown_error,
 }
 
 export interface CompletionData {
@@ -61,6 +37,7 @@ export enum CompletionType {
   function,
   tag,
   attribute,
+  value,
 }
 
 export interface Example {
