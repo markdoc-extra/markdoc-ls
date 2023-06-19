@@ -14,14 +14,14 @@ const PluginStubUnsupported: Plugin = {
 
 export async function compile(path: string, parent: string) {
   const ts = new Date().getTime()
-  const tmpFile = `${ts}-${basename(path).replace(/m?[tj]s$/, 'mjs')}`
+  const tmpFile = `${ts}-${basename(path).replace(/\.[cm]?[tj]s$/, '.js')}`
   try {
     await build({
       absWorkingDir: parent,
       entryPoints: [path],
       outfile: tmpFile,
       platform: 'node',
-      format: 'esm',
+      format: 'cjs',
       jsx: 'transform',
       loader: { '.js': 'jsx' },
       bundle: true,
