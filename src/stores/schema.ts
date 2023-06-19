@@ -2,18 +2,8 @@ import Markdoc, { Config, ConfigType } from '@markdoc/markdoc/index'
 import { existsSync } from 'fs'
 import merge from 'lodash.merge'
 import { join } from 'path'
+import { SchemaKind, SchemaMeta } from '../types'
 import { compile } from '../utilities/compile'
-
-enum SchemaKind {
-  RootSchema,
-  Schema,
-  Nodes,
-  Tags,
-  Functions,
-  Variables,
-  Partials,
-  Unknown,
-}
 
 const kindLookup: Record<string, SchemaKind> = {
   nodes: SchemaKind.Nodes,
@@ -23,12 +13,6 @@ const kindLookup: Record<string, SchemaKind> = {
   partials: SchemaKind.Partials,
   config: SchemaKind.Schema,
   'markdoc.config': SchemaKind.RootSchema,
-}
-
-interface SchemaMeta {
-  kind: SchemaKind
-  path: string
-  parent: string
 }
 
 export class Schema {

@@ -1,5 +1,5 @@
 import { setInterval } from 'timers/promises'
-import { Server } from '../common/types'
+import { Server } from '../types'
 
 export async function waitTillReady(server: Server) {
   for await (const startTime of setInterval(100, Date.now())) {

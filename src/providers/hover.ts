@@ -1,7 +1,12 @@
 import { Hover, HoverParams } from 'vscode-languageserver/node'
-import { buildContent } from '../common/documentation'
-import { Server } from '../common/types'
+import { Server } from '../types'
 import { findInTree, inRange } from '../utilities/ast'
+import {
+  buildContent,
+  getAttributeCompletion,
+  getFuncCompletion,
+  getTagCompletion,
+} from '../utilities/resolver'
 
 export default class HoverProvider {
   private server: Server
@@ -24,36 +29,29 @@ export default class HoverProvider {
     const node = findInTree(ast, position.line)
     if (!currentDoc || !ast || !node || node.type !== 'tag') return empty
     const offset = currentDoc.offsetAt(position)
+    const schema = this.server.schema?.get()
+    if (!schema) return empty
 
-    if (
-      inRange(offset, node.range) &&
-      node.tag &&
-      node.tag in this.server.completions.tags
-    ) {
-      return {
-        contents: buildContent(this.server.completions.tags[node.tag]),
-      }
+    if (inRange(offset, node.range) && node.tag) {
+      const tagCompletion = getTagCompletion(schema, node.tag)
+      if (!tagCompletion) return empty
+      return { contents: buildContent(tagCompletion) }
     } else if (node.annotations.some((a) => inRange(offset, a.range))) {
       const attr = node.annotations.find((a) => inRange(offset, a.range))
-      const lookupKey = `${node.tag}_${attr?.name}`
-      if (attr && lookupKey in this.server.completions.attributes) {
-        return {
-          contents: buildContent(this.server.completions.attributes[lookupKey]),
-        }
-      }
+      if (!node.tag || !attr) return empty
+      const attrCompletion = getAttributeCompletion(schema, node.tag, attr.name)
+      if (!attrCompletion) return empty
+      return { contents: buildContent(attrCompletion) }
     } else if (node.annotations.some((a) => inRange(offset, a.value?.range))) {
       const annotation = node.annotations.find((a) =>
         inRange(offset, a.value.range)
       )?.value
       const paramRanges: [number, number][] = Object.values(annotation?.ranges)
       const paramRange = paramRanges.find((range) => inRange(offset, range))
-
       if (!paramRange && annotation?.name) {
-        return {
-          contents: buildContent(
-            this.server.completions.functions[annotation.name]
-          ),
-        }
+        const funcCompletion = getFuncCompletion(annotation.name)
+        if (!funcCompletion) return empty
+        return { contents: buildContent(funcCompletion) }
       }
     }
     return empty

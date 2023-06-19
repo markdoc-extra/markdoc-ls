@@ -4,29 +4,19 @@ import {
   ProposedFeatures,
 } from 'vscode-languageserver/node'
 import { URI } from 'vscode-uri'
-import { Server } from './src/common/types'
-import CompletionsProvider from './src/providers/completions'
-import DiagnosticsProvider from './src/providers/diagnostics'
-import FormattingProvider from './src/providers/formatting'
-import HoverProvider from './src/providers/hover'
-import InitProvider from './src/providers/init'
-import { Documents } from './src/stores'
+import CompletionsProvider from './providers/completions'
+import DiagnosticsProvider from './providers/diagnostics'
+import FormattingProvider from './providers/formatting'
+import HoverProvider from './providers/hover'
+import InitProvider from './providers/init'
+import { Documents } from './stores'
+import { Server } from './types'
 
 export function startServer() {
   const server: Server = {
     connection: createConnection(ProposedFeatures.all),
     documents: new Documents(),
     capabilities: {},
-    symbols: {
-      tags: [],
-      functions: [],
-      attributes: {},
-    },
-    completions: {
-      tags: {},
-      attributes: {},
-      functions: {},
-    },
     ready: false,
   }
 

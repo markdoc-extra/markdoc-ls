@@ -6,7 +6,7 @@ import {
   TextEdit,
   uinteger,
 } from 'vscode-languageserver/node'
-import { Server } from '../common/types'
+import { Server } from '../types'
 
 export default class FormattingProvider {
   private server: Server

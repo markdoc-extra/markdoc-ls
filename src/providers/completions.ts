@@ -3,9 +3,14 @@ import {
   CompletionItemKind,
   CompletionParams,
 } from 'vscode-languageserver/node'
-import { CompletionData, CompletionType, Server } from '../common/types'
+import { CompletionData, CompletionType, MatchType, Server } from '../types'
 import { findTagStart } from '../utilities/ast'
-import { drunkParse, MatchType } from '../utilities/drunkParse'
+import { drunkParse } from '../utilities/drunkParse'
+import {
+  getAttributeCompletion,
+  getFuncCompletion,
+  getTagCompletion,
+} from '../utilities/resolver'
 
 export default class CompletionsProvider {
   private server: Server
@@ -19,6 +24,75 @@ export default class CompletionsProvider {
     this.server.connection.onCompletionResolve(this.completeResolve.bind(this))
   }
 
+  private completeItems(
+    property: 'nodes' | 'tags' | 'variables' | 'functions' | 'partials',
+    type: CompletionType,
+    kind: CompletionItemKind,
+    tagName?: string
+  ): CompletionItem[] {
+    const schema = this.server.schema?.get()
+    if (!schema) return []
+
+    let items: string[]
+    const data: CompletionData = { type }
+    if (tagName && type === CompletionType.attribute) {
+      const { attributes } = (schema.tags || {})[tagName]
+      if (!attributes) return []
+      items = Object.keys(attributes)
+      data.tagName = tagName
+    } else {
+      items = Object.keys(schema[property] || {})
+    }
+    if (!items?.length) return []
+
+    return items.map((label) => ({
+      label: label,
+      kind,
+      data,
+    }))
+  }
+
+  private completeNullAndBool(): CompletionItem[] {
+    return ['null', 'true', 'false'].map((val) => ({
+      label: val,
+      kind: CompletionItemKind.Keyword,
+      data: { type: CompletionType.value },
+    }))
+  }
+
+  private completeTags(): CompletionItem[] {
+    return this.completeItems(
+      'tags',
+      CompletionType.tag,
+      CompletionItemKind.Class
+    )
+  }
+
+  private completeFunc(): CompletionItem[] {
+    return this.completeItems(
+      'functions',
+      CompletionType.function,
+      CompletionItemKind.Function
+    )
+  }
+
+  private completeAttr(tagName: string): CompletionItem[] {
+    return this.completeItems(
+      'tags',
+      CompletionType.attribute,
+      CompletionItemKind.Field,
+      tagName
+    )
+  }
+
+  private completeVariables(): CompletionItem[] {
+    return this.completeItems(
+      'variables',
+      CompletionType.variable,
+      CompletionItemKind.Property
+    )
+  }
+
   complete({ textDocument, position }: CompletionParams): CompletionItem[] {
     const currentDoc = this.server.documents.get(textDocument.uri)
     if (!currentDoc) return []
@@ -27,97 +101,45 @@ export default class CompletionsProvider {
     const startOffset = findTagStart(currentDoc.getText(), offset)
     const textSoFar = text.substring(startOffset, offset)
     const match = drunkParse(textSoFar)
+    const schema = this.server.schema?.get()
+    if (!schema) return []
 
     if (match) {
       switch (match.type) {
         case MatchType.TagName:
-          return this.server.symbols.tags.map((tag) => ({
-            label: tag,
-            kind: CompletionItemKind.Class,
-            data: {
-              type: CompletionType.tag,
-            },
-          }))
-        case MatchType.AttrOrFn: {
+          return this.completeTags()
+        case MatchType.AttrOrFn:
           if (!match.tagName) return []
-          const attributes = this.server.symbols.attributes[match.tagName]
-          if (!attributes || !attributes.length) return []
-          return [
-            ...attributes.map((attr) => ({
-              label: attr,
-              kind: CompletionItemKind.Field,
-              data: {
-                type: CompletionType.attribute,
-                tagName: match.tagName,
-              },
-            })),
-            ...this.server.symbols.functions.map((func) => ({
-              label: func,
-              kind: CompletionItemKind.Function,
-              data: {
-                type: CompletionType.function,
-              },
-            })),
-          ]
-        }
-        case MatchType.AttrName: {
+          return [...this.completeAttr(match.tagName), ...this.completeFunc()]
+        case MatchType.AttrName:
           if (!match.tagName) return []
-          const attributes = this.server.symbols.attributes[match.tagName]
-          if (!attributes || !attributes.length) return []
-          return attributes.map((attr) => ({
-            label: attr,
-            kind: CompletionItemKind.Field,
-            data: {
-              type: CompletionType.attribute,
-              tagName: match.tagName,
-            },
-          }))
-        }
+          return this.completeAttr(match.tagName)
         case MatchType.Function:
-          return this.server.symbols.functions.map((func) => ({
-            label: func,
-            kind: CompletionItemKind.Function,
-            data: {
-              type: CompletionType.function,
-            },
-          }))
+          return this.completeFunc()
+        case MatchType.Variable:
+          return this.completeVariables()
         case MatchType.NullBoolFn:
-          return [
-            ...['null', 'true', 'false'].map((val) => ({
-              label: val,
-              kind: CompletionItemKind.Keyword,
-              data: {
-                type: CompletionType.value,
-              },
-            })),
-            ...this.server.symbols.functions.map((func) => ({
-              label: func,
-              kind: CompletionItemKind.Function,
-              data: {
-                type: CompletionType.function,
-              },
-            })),
-          ]
+          return [...this.completeNullAndBool(), ...this.completeFunc()]
       }
     }
-
     return []
   }
 
   completeResolve(item: CompletionItem): CompletionItem {
     const data = item.data as CompletionData
-    let completion: CompletionItem
-    if (
-      data.type === CompletionType.function &&
-      item.label in this.server.completions.functions
-    ) {
-      completion = this.server.completions.functions[item.label]
+    let completion: CompletionItem | undefined
+    const schema = this.server.schema?.get()
+    if (!schema) return item
+
+    if (data.type === CompletionType.function) {
+      completion = getFuncCompletion(item.label)
     } else if (data.type === CompletionType.attribute) {
-      const lookupKey = `${data.tagName}_${item.label}`
-      completion = this.server.completions.attributes[lookupKey]
+      if (!data.tagName) return item
+      completion = getAttributeCompletion(schema, data.tagName, item.label)
     } else {
-      completion = this.server.completions.tags[item.label]
+      completion = getTagCompletion(schema, item.label)
     }
-    return completion
+
+    return completion ? completion : item
   }
 }

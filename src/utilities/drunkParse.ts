@@ -1,18 +1,4 @@
-enum MatchType {
-  TagName = 'TagName',
-  AttrOrFn = 'AttrOrFn',
-  AttrName = 'AttrName',
-  Variable = 'Variable',
-  NullBoolFn = 'NullBoolFn',
-  Function = 'Function',
-}
-
-interface MatchResult {
-  type: MatchType
-  tagName?: string
-  attributeName?: string
-  variableName?: string
-}
+import { MatchResult, MatchType } from '../types'
 
 function drunkParse(text: string): MatchResult | undefined {
   const tagStartMatch = /\{%\s*/.exec(text)
@@ -178,4 +164,4 @@ function matchVariable(text: string): MatchResult | string | undefined {
   return text
 }
 
-export { drunkParse, MatchType }
+export { drunkParse }

@@ -2,7 +2,7 @@ import { build } from 'esbuild-wasm'
 
 try {
   const { errors, warnings } = await build({
-    entryPoints: ['index.ts'],
+    entryPoints: ['src/index.ts'],
     bundle: true,
     minify: process.argv[2] === '--minify',
     platform: 'node',

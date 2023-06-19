@@ -6,7 +6,7 @@ import {
   Range,
   TextDocumentChangeEvent,
 } from 'vscode-languageserver/node'
-import { Server } from '../common/types'
+import { Server } from '../types'
 import { waitTillReady } from '../utilities/waitTillReady'
 
 export default class DiagnosticsProvider {

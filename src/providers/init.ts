@@ -6,9 +6,8 @@ import {
   WorkDoneProgressReporter,
 } from 'vscode-languageserver/node'
 import { URI } from 'vscode-uri'
-import { index } from '../common/indexer'
-import { Server } from '../common/types'
 import { Schema } from '../stores'
+import { Server } from '../types'
 
 export default class InitProvider {
   private server: Server
@@ -54,7 +53,7 @@ export default class InitProvider {
       progress.begin('Indexing')
       const workspaceRoot = URI.parse(folders[0].uri).fsPath
       this.server.schema = await Schema.from(workspaceRoot).load()
-      await index(this.server)
+      this.server.ready = true
       progress.done()
     }
     this.server.connection.workspace.onDidChangeWorkspaceFolders((_event) => {

@@ -1,10 +1,13 @@
-import { Schema, SchemaAttribute } from '@markdoc/markdoc/index'
+import { Config, Schema, SchemaAttribute } from '@markdoc/markdoc/index'
 import {
   CompletionItem,
+  CompletionItemKind,
   MarkupContent,
   MarkupKind,
 } from 'vscode-languageserver/node'
-import { Documentation, Example } from './types'
+import functions from '../../data/functions.json'
+import tags from '../../data/tags.json'
+import { Documentation, Example } from '../types'
 
 const REGION_CODE = '```'
 const REGION_MARKDOC = '```markdoc'
@@ -114,5 +117,67 @@ export function buildContent(completion: CompletionItem): MarkupContent {
       '---',
       (completion.documentation as MarkupContent)?.value,
     ].join('\n'),
+  }
+}
+
+export function getBuiltinFunc(name: string) {
+  return (functions as Record<string, any>)[name]
+}
+
+export function getBuiltinTag(name: string) {
+  return (tags as Record<string, any>)[name]
+}
+
+export function getFuncCompletion(func: string): CompletionItem | undefined {
+  const builtin = getBuiltinFunc(func)
+  return {
+    label: func,
+    kind: CompletionItemKind.Function,
+    insertText: `${func}()`,
+    detail: builtin ? builtin.signature : '',
+    documentation: {
+      kind: MarkupKind.Markdown,
+      value: builtin ? buildDocForBuiltin(builtin) : '',
+    },
+  }
+}
+
+export function getTagCompletion(
+  schema: Config,
+  tagName: string
+): CompletionItem | undefined {
+  const tagValue = (schema?.tags || {})[tagName]
+  if (!tagValue) return
+  const builtin = getBuiltinTag(tagName)
+
+  return {
+    label: tagName,
+    kind: CompletionItemKind.Class,
+    insertText: tagName,
+    detail: buildDetailsForTag(tagName, tagValue),
+    documentation: {
+      kind: MarkupKind.Markdown,
+      value: builtin ? buildDocForBuiltin(builtin) : buildDocForTag(tagValue),
+    },
+  }
+}
+
+export function getAttributeCompletion(
+  schema: Config,
+  tagName: string,
+  attribute: string
+): CompletionItem | undefined {
+  const attrValue = ((schema.tags || {})[tagName].attributes || {})[attribute]
+  if (!attrValue) return
+
+  return {
+    label: tagName,
+    kind: CompletionItemKind.Field,
+    insertText: buildInsertTextForAttr(attribute, attrValue),
+    detail: buildDetailsForAttr(attribute, attrValue),
+    documentation: {
+      kind: MarkupKind.Markdown,
+      value: buildDocForAttr(attrValue),
+    },
   }
 }
