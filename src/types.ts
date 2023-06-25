@@ -51,12 +51,13 @@ export interface Documentation {
 }
 
 export enum MatchType {
-  TagName,
-  AttrOrFn,
+  TagNameOrFunc,
+  AttrNameOrVal,
+  AttrNameOrFunc,
   AttrName,
-  Variable,
-  NullBoolFn,
-  Function,
+  AttrVal,
+  Var,
+  Func,
 }
 
 export interface MatchResult {
