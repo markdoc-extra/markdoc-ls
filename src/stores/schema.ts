@@ -128,6 +128,16 @@ export class Schema {
       }
     }
     this.schema = result
+
+    console.log(
+      'Loaded ',
+      Object.entries(result)
+        .filter((pair) => pair[0] !== 'validation')
+        .map(([key, val]) => [key, Object.keys(val || {}).length || 0])
+        .filter((pair) => pair[1] > 0)
+        .map(([key, val]) => `${key}: ${val}`)
+        .join(', ')
+    )
     return this
   }
 

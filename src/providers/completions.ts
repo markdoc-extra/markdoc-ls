@@ -5,7 +5,7 @@ import {
 } from 'vscode-languageserver/node'
 import { CompletionData, CompletionType, MatchType, Server } from '../types'
 import { findTagStart } from '../utilities/ast'
-import { drunkParse } from '../utilities/drunkParse'
+import { Drunk } from '../utilities/drunk'
 import {
   getAttributeCompletion,
   getFuncCompletion,
@@ -100,25 +100,33 @@ export default class CompletionsProvider {
     const offset = currentDoc.offsetAt(position)
     const startOffset = findTagStart(currentDoc.getText(), offset)
     const textSoFar = text.substring(startOffset, offset)
-    const match = drunkParse(textSoFar)
+    const match = new Drunk(textSoFar).parseTag()
     const schema = this.server.schema?.get()
     if (!schema) return []
 
     if (match) {
       switch (match.type) {
-        case MatchType.TagName:
-          return this.completeTags()
-        case MatchType.AttrOrFn:
-          if (!match.tagName) return []
-          return [...this.completeAttr(match.tagName), ...this.completeFunc()]
+        case MatchType.TagNameOrFunc:
+          return [...this.completeTags(), ...this.completeFunc()]
+        case MatchType.AttrNameOrFunc:
+          return [
+            ...(match.tagName ? this.completeAttr(match.tagName) : []),
+            ...this.completeFunc(),
+          ]
+        case MatchType.AttrNameOrVal:
+          return [
+            ...(match.tagName ? this.completeAttr(match.tagName) : []),
+            ...this.completeFunc(),
+            ...this.completeNullAndBool(),
+          ]
         case MatchType.AttrName:
           if (!match.tagName) return []
           return this.completeAttr(match.tagName)
-        case MatchType.Function:
+        case MatchType.Func:
           return this.completeFunc()
-        case MatchType.Variable:
+        case MatchType.Var:
           return this.completeVariables()
-        case MatchType.NullBoolFn:
+        case MatchType.AttrVal:
           return [...this.completeNullAndBool(), ...this.completeFunc()]
       }
     }
