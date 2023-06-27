@@ -140,7 +140,7 @@ export class Drunk {
   }: {
     tagName?: string
     attributeName?: string
-  }): [ParseState, MatchResult?] {
+  } = {}): [ParseState, MatchResult?] {
     const common = {
       ...(tagName && { tagName }),
       ...(attributeName && { attributeName }),
@@ -157,14 +157,19 @@ export class Drunk {
     } else if (this.expect(/[$@]/)) {
       // Variable
       if (this.endsAfter(1)) {
-        return [ParseState.Completion, { type: MatchType.Var, attributeName }]
+        return [
+          ParseState.Completion,
+          { type: MatchType.Var, ...(attributeName && { attributeName }) },
+        ]
       }
       const variableMatch = this.parseVariable()
       if (!variableMatch) return [ParseState.Error]
       return variableMatch
     } else if (this.expect(/[a-zA-Z]/)) {
       // Boolean or Null Value [skip]
-      if (this.expect(/[nft]/)) this.parseToken(/null|true|false/)
+      if (this.expect(/[nft]/) && this.parseToken(/null|true|false/)) {
+        return [ParseState.Skip]
+      }
       // Functions
       if (this.endsAfter(1)) {
         return [ParseState.Completion, { type: MatchType.Func, ...common }]
@@ -176,7 +181,7 @@ export class Drunk {
       return [ParseState.Skip]
     } else if (this.expect(/[-\d]/)) {
       // Digits
-      const numberMatch = this.parseToken(/-?\d+(\.\d+)?/)
+      const numberMatch = this.parseToken(/-?\d+(\.\d+)?(?=(\s+|$))/)
       if (!numberMatch) return [ParseState.Error]
       return [ParseState.Skip]
     } else if (this.expect(/["']/)) {
@@ -188,7 +193,7 @@ export class Drunk {
     return [ParseState.Error]
   }
 
-  parseAttributeKV(): [ParseState, MatchResult?] {
+  parseAttributeKV(tagName?: string): [ParseState, MatchResult?] {
     const attributeNameMatch = this.parseToken(/[a-zA-Z][-\w]*/)
     if (!attributeNameMatch) return [ParseState.Error]
     const attributeName = attributeNameMatch
@@ -196,13 +201,17 @@ export class Drunk {
     if (this.eof()) {
       return [
         ParseState.Completion,
-        { type: MatchType.AttrName, attributeName },
+        {
+          type: MatchType.AttrName,
+          attributeName,
+          ...(tagName && { tagName }),
+        },
       ]
     }
 
     if (this.peek() === '=') {
       this.position++
-      return this.parseValue({ attributeName })
+      return this.parseValue({ attributeName, ...(tagName && { tagName }) })
     }
 
     return [ParseState.Error]
@@ -230,23 +239,19 @@ export class Drunk {
     // Tag Name followed of Attributes
     const tagName = this.parseToken(/([a-zA-Z][-\w]*)?(?=(\s+|$))/)
     if (tagName) {
-      if (this.eof()) {
-        return { type: MatchType.TagNameOrFunc, tagName }
-      }
+      if (this.eof()) return { type: MatchType.TagNameOrFunc, tagName }
       let isFirst = true
       while (!this.eof()) {
         this.consumeWhitespace()
         // Attribute Name Or Value
         if (isFirst) {
-          if (this.eof()) {
-            return { type: MatchType.AttrNameOrVal, tagName }
-          }
+          if (this.eof()) return { type: MatchType.AttrNameOrVal, tagName }
           if (this.endsAfter(1) && this.expect(/[$@]/)) {
             return { type: MatchType.Var, attributeName: tagName }
           }
         }
         isFirst = false
-        const [state, result] = this.parseAttributeKV()
+        const [state, result] = this.parseAttributeKV(tagName)
         switch (state) {
           case ParseState.Completion:
             return result
@@ -258,9 +263,7 @@ export class Drunk {
       }
       // Interpolation Variable
     } else if (this.expect(/[$@]/)) {
-      if (this.endsAfter(1)) {
-        return { type: MatchType.Var }
-      }
+      if (this.endsAfter(1)) return { type: MatchType.Var }
       const variableMatch = this.parseVariable()
       if (!variableMatch) return
       return variableMatch[1]
