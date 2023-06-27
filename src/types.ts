@@ -64,5 +64,10 @@ export interface MatchResult {
   type: MatchType
   tagName?: string
   attributeName?: string
-  variableName?: string
+}
+
+export enum ParseState {
+  Completion,
+  Skip,
+  Error,
 }
