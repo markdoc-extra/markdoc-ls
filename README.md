@@ -6,16 +6,27 @@
   <img alt="GitHub" src="https://img.shields.io/github/license/mohitsinghs/markdoc-ls?style=flat-square">
 </p>
 <p align="center">
-  <b>An experimental language server for markdoc</b><br/>
+  <b>An language server for markdoc</b><br/>
 </p>
 
 <br />
 
+## Features
+
+- Config Parsing
+- Formatting
+- Completion
+- Diagnostics
+
+## Using with VSCode
+
+There is [an extension](https://marketplace.visualstudio.com/items?itemName=mohitsingh.markdoc) in VSCode Marketplace and the source code for extension is at [vscode-markdoc](https://github.com/markdoc-extra/vscode-markdoc) repo.
+
 ## Using with Neovim
 
-This requires that you've already enabled markdoc language support with [tree-sitter-markdoc](https://github.com/markdoc-extra/tree-sitter-markdoc).
+1. Enable syntax highlighting with [tree-sitter-markdoc](https://github.com/markdoc-extra/tree-sitter-markdoc)
 
-1. Define new config for markdoc lanaguage server.
+2. Define new config for markdoc lanaguage server.
 
 ```lua
 local configs = require("lspconfig.configs")
@@ -33,7 +44,7 @@ if not configs.markdoc_ls then
   end
 ```
 
-2. Setup language server after defining `on_attach` and `capablities`.
+3. Setup language server after defining `on_attach` and `capablities`.
 
 ```lua
 local lspconfig = require("lspconfig")
