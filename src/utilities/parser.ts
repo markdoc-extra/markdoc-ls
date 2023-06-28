@@ -1,6 +1,6 @@
 import { MatchResult, MatchType, ParseState } from '../types'
 
-export class Drunk {
+export class Parser {
   private text: string
   private position: number
 

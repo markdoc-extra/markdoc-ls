@@ -5,7 +5,7 @@ import {
 } from 'vscode-languageserver/node'
 import { CompletionData, CompletionType, MatchType, Server } from '../types'
 import { findTagStart } from '../utilities/ast'
-import { Drunk } from '../utilities/drunk'
+import { Parser } from '../utilities/parser'
 import {
   getAttributeCompletion,
   getFuncCompletion,
@@ -100,7 +100,7 @@ export default class CompletionsProvider {
     const offset = currentDoc.offsetAt(position)
     const startOffset = findTagStart(currentDoc.getText(), offset)
     const textSoFar = text.substring(startOffset, offset)
-    const match = new Drunk(textSoFar).parseTag()
+    const match = new Parser(textSoFar).parseTag()
     const schema = this.server.schema?.get()
     if (!schema) return []
 
