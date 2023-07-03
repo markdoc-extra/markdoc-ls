@@ -14,8 +14,6 @@
   "scripts": {
     "prebuild": "npx patch-package",
     "build": "node ./scripts/build.mjs",
-    "docs": "node ./scripts/docs.mjs",
-    "postdocs": "prettier --write \"./data/*.json\"",
     "test": "node -r esbuild-register src/**/*.spec.ts"
   },
   "bin": "./bin/markdoc-ls",

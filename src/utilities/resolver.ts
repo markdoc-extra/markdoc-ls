@@ -2,42 +2,15 @@ import { Config, Schema, SchemaAttribute } from '@markdoc/markdoc/index'
 import {
   CompletionItem,
   CompletionItemKind,
+  InsertTextFormat,
   MarkupContent,
   MarkupKind,
 } from 'vscode-languageserver/node'
-import functions from '../../data/functions.json'
-import tags from '../../data/tags.json'
-import { Documentation, Example } from '../types'
+import { functions, tags } from '../../data/builtin-docs.json'
 
-const REGION_CODE = '```'
-const REGION_MARKDOC = '```markdoc'
 const NEWLINE = `
 `
 const EMPTY = ''
-
-function buildExamples(examples: Example[]) {
-  return examples
-    .map(
-      (example, i) => `
-
-
-  **Example${examples.length > 1 ? ` ${i + 1}` : ''}**
-  
-  ${REGION_CODE}${example.language}
-  ${example.content}
-  ${REGION_CODE}
-  `
-    )
-    .join('\n')
-}
-
-export function buildDocForBuiltin(doc: Documentation): string {
-  return `
-${doc.help}
-
-${doc.examples.length ? buildExamples(doc.examples) : ''}
-`
-}
 
 export function buildDocForTag(tagValue: Schema): string {
   return 'description' in tagValue
@@ -82,27 +55,24 @@ export function buildDetailsForAttr(attr: string, attrValue: SchemaAttribute) {
   return detail
 }
 
-export function buildInsertTextForAttr(
+export function buildInsertTextForAttrName(
   attr: string,
   attrValue: SchemaAttribute
 ) {
-  let text = `${attr}=`
-  switch (attrValue?.type) {
-    case String:
-      text += `"${attrValue?.default || ''}"`
-      break
+  let text = `${attr}`
+
+  switch (attrValue.type) {
+    case 'Array':
     case Array:
-      text += '[]'
+      text += '=[$0]'
       break
     case Object:
-      text += '{}'
+    case 'Object':
+      text += '={$0}'
       break
-    case Boolean:
-      text += `${attrValue?.default || 'false'}`
-      break
-    case Number:
-      text += `${attrValue?.default || '0'}`
-      break
+    case String:
+    case 'String':
+      text += attrValue.default ? `="${attrValue.default}"` : '"$0"'
   }
   return text
 }
@@ -111,9 +81,9 @@ export function buildContent(completion: CompletionItem): MarkupContent {
   return {
     kind: MarkupKind.Markdown,
     value: [
-      REGION_MARKDOC,
+      '```typescript',
       completion.detail,
-      REGION_CODE,
+      '```',
       '---',
       (completion.documentation as MarkupContent)?.value,
     ].join('\n'),
@@ -133,12 +103,9 @@ export function getFuncCompletion(func: string): CompletionItem | undefined {
   return {
     label: func,
     kind: CompletionItemKind.Function,
-    insertText: `${func}()`,
-    detail: builtin ? builtin.signature : '',
-    documentation: {
-      kind: MarkupKind.Markdown,
-      value: builtin ? buildDocForBuiltin(builtin) : '',
-    },
+    insertText: `${func}($0)`,
+    insertTextFormat: InsertTextFormat.Snippet,
+    documentation: { kind: MarkupKind.Markdown, value: builtin },
   }
 }
 
@@ -157,7 +124,7 @@ export function getTagCompletion(
     detail: buildDetailsForTag(tagName, tagValue),
     documentation: {
       kind: MarkupKind.Markdown,
-      value: builtin ? buildDocForBuiltin(builtin) : buildDocForTag(tagValue),
+      value: builtin ? builtin : buildDocForTag(tagValue),
     },
   }
 }
@@ -173,7 +140,8 @@ export function getAttributeCompletion(
   return {
     label: tagName,
     kind: CompletionItemKind.Field,
-    insertText: buildInsertTextForAttr(attribute, attrValue),
+    insertText: buildInsertTextForAttrName(attribute, attrValue),
+    insertTextFormat: InsertTextFormat.Snippet,
     detail: buildDetailsForAttr(attribute, attrValue),
     documentation: {
       kind: MarkupKind.Markdown,

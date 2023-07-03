@@ -33,6 +33,7 @@ export default class InitProvider {
         textDocumentSync: TextDocumentSyncKind.Incremental,
         completionProvider: {
           resolveProvider: true,
+          triggerCharacters: ['='],
         },
         documentFormattingProvider: true,
         documentRangeFormattingProvider: true,

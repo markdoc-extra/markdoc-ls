@@ -27,29 +27,56 @@ export default class CompletionsProvider {
   private completeItems(
     property: 'nodes' | 'tags' | 'variables' | 'functions' | 'partials',
     type: CompletionType,
-    kind: CompletionItemKind,
-    tagName?: string
+    kind: CompletionItemKind
   ): CompletionItem[] {
     const schema = this.server.schema?.get()
     if (!schema) return []
-
     let items: string[]
-    const data: CompletionData = { type }
-    if (tagName && type === CompletionType.attribute) {
-      const { attributes } = (schema.tags || {})[tagName]
-      if (!attributes) return []
-      items = Object.keys(attributes)
-      data.tagName = tagName
-    } else {
-      items = Object.keys(schema[property] || {})
-    }
+    items = Object.keys(schema[property] || {})
     if (!items?.length) return []
 
     return items.map((label) => ({
       label: label,
       kind,
-      data,
+      data: { type },
     }))
+  }
+
+  private completeAttributes(
+    tagName?: string,
+    attributeName?: string
+  ): CompletionItem[] {
+    const schema = this.server.schema?.get()
+    if (!schema || !tagName) return []
+    const { attributes } = (schema.tags || {})[tagName]
+    if (!attributeName) {
+      return Object.keys(attributes || {}).map(
+        (key): CompletionItem => ({
+          label: key,
+          kind: CompletionItemKind.Field,
+          data: { tagName },
+        })
+      )
+    }
+    if (!attributes) return []
+    for (let attribute in attributes) {
+      if (attribute === attributeName) {
+        const attributeVal = attributes[attributeName]
+        if (attributeVal.type === 'String' || attributeVal.type === String) {
+          if (Array.isArray(attributeVal.matches)) {
+            return attributeVal.matches.map(
+              (attributeName): CompletionItem => ({
+                label: attributeName,
+                kind: CompletionItemKind.Field,
+                data: { tagName, attributeName },
+                insertText: `"${attributeName}"`,
+              })
+            )
+          }
+        }
+      }
+    }
+    return []
   }
 
   private completeNullAndBool(): CompletionItem[] {
@@ -73,15 +100,6 @@ export default class CompletionsProvider {
       'functions',
       CompletionType.function,
       CompletionItemKind.Function
-    )
-  }
-
-  private completeAttr(tagName: string): CompletionItem[] {
-    return this.completeItems(
-      'tags',
-      CompletionType.attribute,
-      CompletionItemKind.Field,
-      tagName
     )
   }
 
@@ -110,24 +128,28 @@ export default class CompletionsProvider {
           return [...this.completeTags(), ...this.completeFunc()]
         case MatchType.AttrNameOrFunc:
           return [
-            ...(match.tagName ? this.completeAttr(match.tagName) : []),
+            ...(match.tagName ? this.completeAttributes(match.tagName) : []),
             ...this.completeFunc(),
           ]
         case MatchType.AttrNameOrVal:
           return [
-            ...(match.tagName ? this.completeAttr(match.tagName) : []),
+            ...(match.tagName ? this.completeAttributes(match.tagName) : []),
             ...this.completeFunc(),
             ...this.completeNullAndBool(),
           ]
         case MatchType.AttrName:
           if (!match.tagName) return []
-          return this.completeAttr(match.tagName)
+          return this.completeAttributes(match.tagName)
         case MatchType.Func:
           return this.completeFunc()
         case MatchType.Var:
           return this.completeVariables()
         case MatchType.AttrVal:
-          return [...this.completeNullAndBool(), ...this.completeFunc()]
+          if (match.tagName && match.attributeName) {
+            return this.completeAttributes(match.tagName, match.attributeName)
+          } else {
+            return [...this.completeNullAndBool(), ...this.completeFunc()]
+          }
       }
     }
     return []
@@ -139,13 +161,19 @@ export default class CompletionsProvider {
     const schema = this.server.schema?.get()
     if (!schema) return item
 
-    if (data.type === CompletionType.function) {
-      completion = getFuncCompletion(item.label)
-    } else if (data.type === CompletionType.attribute) {
-      if (!data.tagName) return item
-      completion = getAttributeCompletion(schema, data.tagName, item.label)
-    } else {
-      completion = getTagCompletion(schema, item.label)
+    switch (data.type) {
+      case CompletionType.function:
+        completion = getFuncCompletion(item.label)
+        break
+      case CompletionType.attribute:
+        if (!data.tagName) return item
+        completion = getAttributeCompletion(schema, data.tagName, item.label)
+        break
+      case CompletionType.tag:
+        completion = getTagCompletion(schema, item.label)
+        break
+      default:
+        return item
     }
 
     return completion ? completion : item

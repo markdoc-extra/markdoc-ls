@@ -1,0 +1,16 @@
+{
+  "tags": {
+    "if": "if tag is used to render content based on condition. It can be used with variables and functions.",
+    "else": "else tag is used to render alternate content when the if condition isn't met. Multiple else statements can be used, and the final else tag triggers when none of the other conditions are met.",
+    "table": "table tag supports CommonMark tables as well as a list based syntax that allows for easy injection of rich content, like bulleted lists and code samples",
+    "partial": "partial tag is used to reuse content across docs. The content is stored in a separate markdown file, and it's referenced from the file attribute in the partial tag, which includes the corresponding piece of content."
+  },
+  "functions": {
+    "and": "Used with the **if** tag to perform AND boolean operations and render the content when the condition is met.",
+    "or": "Used with the **if** tag to perform OR boolean operations and render the content when the condition is met.",
+    "not": "Used with the **if** tag to perform NOT boolean operations and render the content when the condition is met.",
+    "equals": "Used to compare a variable against a given value. This function uses JavaScript's strict equality semantics, and is only used for primitive types.",
+    "default": "Used to set a value for a variable that might not exist.",
+    "debug": "Renders the value as a serialized JSON value in the document. This can be useful for determining what value is in a variable."
+  }
+}

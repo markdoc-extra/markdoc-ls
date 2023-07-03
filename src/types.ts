@@ -29,6 +29,7 @@ export interface SchemaMeta {
 export interface CompletionData {
   type: CompletionType
   tagName?: string
+  attributeName?: string
 }
 
 export enum CompletionType {
